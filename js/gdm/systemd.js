@@ -18,13 +18,13 @@ const SystemdLoginManagerIface = <interface name='org.freedesktop.login1.Manager
 </method>
 </interface>;
 
-const SystemdLoginManagerProxy = Gio.DBusProxy.makeProxyWrapper(SystemdLoginManagerIface);
-
-function SystemdLoginManager() {
-    return new SystemdLoginManagerProxy(Gio.DBus.system,
-                                        'org.freedesktop.login1',
-                                        '/org/freedesktop/login1');
-};
+const SystemdLoginManager = new Gio.DBusProxyClass({
+    Name: 'SystemdLoginManager',
+    Interface: SystemdLoginManagerIface,
+    BusType: Gio.BusType.SYSTEM,
+    BusName: 'org.freedesktop.login1',
+    ObjectPath: '/org/freedesktop/login1'
+});
 
 function haveSystemd() {
     return GLib.access("/sys/fs/cgroup/systemd", 0) >= 0;

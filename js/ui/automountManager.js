@@ -26,7 +26,12 @@ const ConsoleKitSessionIface = <interface name="org.freedesktop.ConsoleKit.Sessi
 </signal>
 </interface>;
 
-const ConsoleKitSessionProxy = Gio.DBusProxy.makeProxyWrapper(ConsoleKitSessionIface);
+const ConsoleKitSession = new Gio.DBusProxyClass({
+    Name: 'ConsoleKitSession',
+    Interface: ConsoleKitSessionIface,
+    BusName: 'org.freedesktop.ConsoleKit',
+    BusType: Gio.BusType.SYSTEM,
+});
 
 const ConsoleKitManagerIface = <interface name="org.freedesktop.ConsoleKit.Manager">
 <method name="GetCurrentSession">
@@ -34,40 +39,41 @@ const ConsoleKitManagerIface = <interface name="org.freedesktop.ConsoleKit.Manag
 </method>
 </interface>;
 
-const ConsoleKitManagerInfo = Gio.DBusInterfaceInfo.new_for_xml(ConsoleKitManagerIface);
+const ConsoleKitManager = new Gio.DBusProxyClass({
+    Name: 'ConsoleKitManager',
+    Interface: ConsoleKitManagerIface,
+    BusName: 'org.freedesktop.ConsoleKit',
+    BusType: Gio.BusType.SYSTEM,
+    ObjectPath: '/org/freedesktop/ConsoleKit/Manager',
+    Flags: (Gio.DBusProxyFlags.DO_NOT_AUTO_START |
+            Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES),
 
-function ConsoleKitManager() {
-    var self = new Gio.DBusProxy({ g_connection: Gio.DBus.system,
-				   g_interface_name: ConsoleKitManagerInfo.name,
-				   g_interface_info: ConsoleKitManagerInfo,
-				   g_name: 'org.freedesktop.ConsoleKit',
-				   g_object_path: '/org/freedesktop/ConsoleKit/Manager',
-                                   g_flags: (Gio.DBusProxyFlags.DO_NOT_AUTO_START |
-                                             Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES) });
+    _init: function(params) {
+        this.parent(params);
 
-    self._updateSessionActive = function() {
-        if (self.g_name_owner) {
-            self.GetCurrentSessionRemote(function([session]) {
-                self._ckSession = new ConsoleKitSessionProxy(Gio.DBus.system, 'org.freedesktop.ConsoleKit', session);
+        this.connect('notify::g-name-owner', Lang.bind(this, this._nameOwnerChanged));
+        this._nameOwnerChanged();
+    },
 
-                self._ckSession.connectSignal('ActiveChanged', function(object, senderName, [isActive]) {
-                    self.sessionActive = isActive;
+    _nameOwnerChanged: function() {
+        if (this.g_name_owner) {
+            this.GetCurrentSessionRemote(Lang.bind(this, function([session]) {
+                this._ckSession = new ConsoleKitSession({
+                    g_object_path: session
                 });
-                self._ckSession.IsActiveRemote(function([isActive]) {
-                    self.sessionActive = isActive;
-                });
-            });
+
+                this._ckSession.connectSignal('ActiveChanged', Lang.bind(this, function(object, senderName, [isActive]) {
+                    this.sessionActive = isActive;
+                }));
+                this._ckSession.IsActiveRemote(Lang.bind(this, function([isActive]) {
+                    this.sessionActive = isActive;
+                }));
+            }));
         } else {
-            self.sessionActive = true;
+            this.sessionActive = true;
         }
-    };
-    self.connect('notify::g-name-owner',
-                 Lang.bind(self, self._updateSessionActive));
-
-    self._updateSessionActive();
-    self.init(null);
-    return self;
-}
+    },
+});
 
 function haveSystemd() {
     return GLib.access("/sys/fs/cgroup/systemd", 0) >= 0;

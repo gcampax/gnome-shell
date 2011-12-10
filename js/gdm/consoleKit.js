@@ -13,10 +13,10 @@ const ConsoleKitManagerIface = <interface name='org.freedesktop.ConsoleKit.Manag
 <method name='Stop' />
 </interface>;
 
-const ConsoleKitProxy = Gio.DBusProxy.makeProxyWrapper(ConsoleKitManagerIface);
-
-function ConsoleKitManager() {
-    return new ConsoleKitProxy(Gio.DBus.system,
-                               'org.freedesktop.ConsoleKit',
-                               '/org/freedesktop/ConsoleKit/Manager');
-};
+const ConsoleKitManager = new Gio.DBusProxyClass({
+    Name: 'ConsoleKitManagerProxy',
+    Interface: ConsoleKitManagerIface,
+    BusType: Gio.BusType.SESSION,
+    BusName: 'org.freedesktop.ConsoleKit',
+    ObjectPath: '/org/freedesktop/ConsoleKit/Manager'
+});

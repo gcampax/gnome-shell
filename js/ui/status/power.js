@@ -49,7 +49,13 @@ const PowerManagerInterface = <interface name="org.gnome.SettingsDaemon.Power">
 <property name="Icon" type="s" access="read" />
 </interface>;
 
-const PowerManagerProxy = Gio.DBusProxy.makeProxyWrapper(PowerManagerInterface);
+const PowerManagerProxy = new Gio.DBusProxyClass({
+    Name: 'PowerManagerProxy',
+    Interface: PowerManagerInterface,
+    BusType: Gio.BusType.SESSION,
+    BusName: BUS_NAME,
+    ObjectPath: OBJECT_PATH
+});
 
 const Indicator = new Lang.Class({
     Name: 'PowerIndicator',
@@ -58,7 +64,7 @@ const Indicator = new Lang.Class({
     _init: function() {
         this.parent('battery-missing', _("Battery"));
 
-        this._proxy = new PowerManagerProxy(Gio.DBus.session, BUS_NAME, OBJECT_PATH);
+        this._proxy = new PowerManagerProxy();
 
         this._deviceItems = [ ];
         this._hasPrimary = false;

@@ -200,20 +200,15 @@ const CalendarServerIface = <interface name="org.gnome.Shell.CalendarServer">
 <signal name="Changed" />
 </interface>;
 
-const CalendarServerInfo  = Gio.DBusInterfaceInfo.new_for_xml(CalendarServerIface);
-
-function CalendarServer() {
-    var self = new Gio.DBusProxy({ g_connection: Gio.DBus.session,
-				   g_interface_name: CalendarServerInfo.name,
-				   g_interface_info: CalendarServerInfo,
-				   g_name: 'org.gnome.Shell.CalendarServer',
-				   g_object_path: '/org/gnome/Shell/CalendarServer',
-                                   g_flags: (Gio.DBusProxyFlags.DO_NOT_AUTO_START |
-                                             Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES) });
-
-    self.init(null);
-    return self;
-}
+const CalendarServer = new Gio.DBusProxyClass({
+    Name: 'CalendarServer',
+    Interface: CalendarServerIface,
+    BusType: Gio.BusType.SESSION,
+    BusName: 'org.gnome.Shell.CalendarServer',
+    ObjectPath: '/org/gnome/Shell/CalendarServer',
+    Flags: (Gio.DBusProxyFlags.DO_NOT_AUTO_START |
+            Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES)
+});
 
 function _datesEqual(a, b) {
     if (a < b)

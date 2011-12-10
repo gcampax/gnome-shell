@@ -24,10 +24,13 @@ const BusIface = <interface name="org.freedesktop.DBus">
 </method>
 </interface>;
 
-var BusProxy = Gio.DBusProxy.makeProxyWrapper(BusIface);
-function Bus() {
-    return new BusProxy(Gio.DBus.session, 'org.freedesktop.DBus', '/org/freedesktop/DBus');
-}
+const Bus = new Gio.DBusProxyClass({
+    Name: 'SessionBusProxy',
+    Interface: BusIface,
+    BusType: Gio.BusType.SESSION,
+    BusName: 'org.freedesktop.DBus',
+    ObjectPath: '/org/freedesktop/DBus'
+});
 
 const NotificationDaemonIface = <interface name="org.freedesktop.Notifications">
 <method name="Notify">
@@ -87,12 +90,13 @@ const rewriteRules = {
     ]
 };
 
-const NotificationDaemon = new Lang.Class({
+const NotificationDaemon = new Gio.DBusImplementerClass({
     Name: 'NotificationDaemon',
+    Interface: NotificationDaemonIface,
 
     _init: function() {
-        this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(NotificationDaemonIface, this);
-        this._dbusImpl.export(Gio.DBus.session, '/org/freedesktop/Notifications');
+        this.parent();
+        this.export(Gio.DBus.session, '/org/freedesktop/Notifications');
 
         this._sources = [];
         this._senderToPid = {};
@@ -473,13 +477,11 @@ const NotificationDaemon = new Lang.Class({
     },
 
     _emitNotificationClosed: function(id, reason) {
-        this._dbusImpl.emit_signal('NotificationClosed',
-                                   GLib.Variant.new('(uu)', [id, reason]));
+        this.emit_signal('NotificationClosed', id, reason);
     },
 
     _emitActionInvoked: function(id, action) {
-        this._dbusImpl.emit_signal('ActionInvoked',
-                                   GLib.Variant.new('(us)', [id, action]));
+        this.emit_signal('ActionInvoked', id, action);
     },
 
     _onTrayIconAdded: function(o, icon) {

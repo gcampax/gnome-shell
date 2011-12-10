@@ -26,7 +26,12 @@ const ModemGsmNetworkInterface = <interface name="org.freedesktop.ModemManager.M
 </signal>
 </interface>;
 
-const ModemGsmNetworkProxy = Gio.DBusProxy.makeProxyWrapper(ModemGsmNetworkInterface);
+const ModemGsmNetworkProxy = new Gio.DBusProxyClass({
+    Name: 'ModemGsmNetworkProxy',
+    Interface: ModemGsmNetworkInterface,
+    BusType: Gio.BusType.SESSION,
+    BusName: 'org.freedesktop.ModemManager'
+});
 
 const ModemCdmaInterface = <interface name="org.freedesktop.ModemManager.Modem.Cdma">
 <method name="GetSignalQuality">
@@ -40,7 +45,12 @@ const ModemCdmaInterface = <interface name="org.freedesktop.ModemManager.Modem.C
 </signal>
 </interface>;
 
-const ModemCdmaProxy = Gio.DBusProxy.makeProxyWrapper(ModemCdmaInterface);
+const ModemCdmaProxy = new Gio.DBusProxyClass({
+    Name: 'ModemCdmaProxy',
+    Interface: ModemCdmaInterface,
+    BusType: Gio.BusType.SESSION,
+    BusName: 'org.freedesktop.ModemManager'
+});
 
 let _providersTable;
 function _getProvidersTable() {
@@ -54,7 +64,9 @@ const ModemGsm = new Lang.Class({
     Name: 'ModemGsm',
 
     _init: function(path) {
-        this._proxy = new ModemGsmNetworkProxy(Gio.DBus.system, 'org.freedesktop.ModemManager', path);
+        this._proxy = new ModemGsmNetworkProxy({
+            g_object_path: path
+        });
 
         this.signal_quality = 0;
         this.operator_name = null;
@@ -157,7 +169,9 @@ const ModemCdma = new Lang.Class({
     Name: 'ModemCdma',
 
     _init: function(path) {
-        this._proxy = new ModemCdmaProxy(Gio.DBus.system, 'org.freedesktop.ModemManager', path);
+        this._proxy = new ModemCdmaProxy({
+            g_object_path: path
+        });
 
         this.signal_quality = 0;
         this.operator_name = null;

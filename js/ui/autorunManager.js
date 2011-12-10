@@ -68,12 +68,13 @@ const HotplugSnifferIface = <interface name="org.gnome.Shell.HotplugSniffer">
 </method>
 </interface>;
 
-const HotplugSnifferProxy = Gio.DBusProxy.makeProxyWrapper(HotplugSnifferIface);
-function HotplugSniffer() {
-    return new HotplugSnifferProxy(Gio.DBus.session,
-                                   'org.gnome.Shell.HotplugSniffer',
-                                   '/org/gnome/Shell/HotplugSniffer');
-}
+const HotplugSniffer = new Gio.DBusProxyClass({
+    Name: 'HotplugSnifferProxy',
+    Interface: HotplugSnifferIface,
+    BusType: Gio.BusType.SESSION,
+    BusName: 'org.gnome.Shell.HotplugSniffer',
+    ObjectPath: '/org/gnome/Shell/HotplugSniffer'
+});
 
 const ContentTypeDiscoverer = new Lang.Class({
     Name: 'ContentTypeDiscoverer',

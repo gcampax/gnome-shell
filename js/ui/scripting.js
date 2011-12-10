@@ -80,10 +80,13 @@ const PerfHelperIface = <interface name="org.gnome.Shell.PerfHelper">
 <method name="DestroyWindows" />
 </interface>;
 
-var PerfHelperProxy = Gio.DBusProxy.makeProxyWrapper(PerfHelperIface);
-function PerfHelper() {
-    return new PerfHelperProxy(Gio.DBus.session, 'org.gnome.Shell.PerfHelper', '/org/gnome/Shell/PerfHelper');
-}
+const PerfHelper = new Gio.DBusProxyClass({
+    Name: 'PerfHelperProxy',
+    Interface: PerfHelperIface,
+    BusType: Gio.BusType.SESSION,
+    BusName: 'org.gnome.Shell.PerfHelper',
+    ObjectPath: '/org/gnome/Shell/PerfHelper'
+});
 
 let _perfHelper = null;
 function _getPerfHelper() {

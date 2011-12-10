@@ -29,8 +29,11 @@ const SearchProviderIface = <interface name="org.gnome.Shell.SearchProvider">
 </method>
 </interface>;
 
-var SearchProviderProxy = Gio.DBusProxy.makeProxyWrapper(SearchProviderIface);
-
+var SearchProviderProxy = new Gio.DBusProxyClass({
+    Name: 'SearchProviderProxy',
+    Interface: SearchProviderIface,
+    BusType: Gio.BusType.SESSION,
+});
 
 function loadRemoteSearchProviders(addProviderCallback) {
     let dataDirs = GLib.get_system_data_dirs();
@@ -87,8 +90,8 @@ const RemoteSearchProvider = new Lang.Class({
     Extends: Search.SearchProvider,
 
     _init: function(title, icon, dbusName, dbusPath) {
-        this._proxy = new SearchProviderProxy(Gio.DBus.session,
-                                              dbusName, dbusPath);
+        this._proxy = new SearchProviderProxy({ g_name: dbusName,
+                                                g_object_path: dbusPath });
 
         this.parent(title.toUpperCase());
         this._cancellable = new Gio.Cancellable();

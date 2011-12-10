@@ -16,33 +16,33 @@ const ScreenSaverIface = <interface name="org.gnome.ScreenSaver">
 </signal>
 </interface>;
 
-const ScreenSaverInfo = Gio.DBusInterfaceInfo.new_for_xml(ScreenSaverIface);
+const ScreenSaverProxy = new Gio.DBusProxyClass({
+    Name: 'ScreenSaverProxy',
+    Interface: ScreenSaverIface,
+    BusType: Gio.BusType.SESSION,
+    BusName: 'org.gnome.ScreenSaver',
+    ObjectPath: '/org/gnome/ScreenSaver',
+    Flags: (Gio.DBusProxyFlags.DO_NOT_AUTO_START |
+            Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES),
 
-function ScreenSaverProxy() {
-    var self = new Gio.DBusProxy({ g_connection: Gio.DBus.session,
-				   g_interface_name: ScreenSaverInfo.name,
-				   g_interface_info: ScreenSaverInfo,
-				   g_name: 'org.gnome.ScreenSaver',
-				   g_object_path: '/org/gnome/ScreenSaver',
-                                   g_flags: (Gio.DBusProxyFlags.DO_NOT_AUTO_START |
-                                             Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES) });
-    self.init(null);
-    self.screenSaverActive = false;
+    _init: function(params) {
+        this.parent(params);
 
-    self.connectSignal('ActiveChanged', function(proxy, senderName, [isActive]) {
-        self.screenSaverActive = isActive;
-    });
-    self.connect('notify::g-name-owner', function() {
-        if (self.g_name_owner) {
-            self.GetActiveRemote(function(result, excp) {
-                if (result) {
-                    let [isActive] = result;
-                    self.screenSaverActive = isActive;
-                }
-            });
-        } else
-            self.screenSaverActive = false;
-    });
+        this.screenSaverActive = false;
 
-    return self;
-}
+        this.connectSignal('ActiveChanged', Lang.bind(this, function(proxy, senderName, [isActive]) {
+            this.screenSaverActive = isActive;
+        }));
+        this.connect('notify::g-name-owner', Lang.bind(this, function() {
+            if (this.g_name_owner) {
+                this.GetActiveRemote(Lang.bind(this, function(result, excp) {
+                    if (result) {
+                        let [isActive] = result;
+                        this.screenSaverActive = isActive;
+                    }
+                }));
+            } else
+                this.screenSaverActive = false;
+        }))
+    }
+});

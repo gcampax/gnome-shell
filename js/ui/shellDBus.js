@@ -76,12 +76,14 @@ const GnomeShellIface = <interface name="org.gnome.Shell">
 </signal>
 </interface>;
 
-const GnomeShell = new Lang.Class({
+const GnomeShell = new Gio.DBusImplementerClass({
     Name: 'GnomeShellDBus',
+    Interface: GnomeShellIface,
 
     _init: function() {
-        this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(GnomeShellIface, this);
-        this._dbusImpl.export(Gio.DBus.session, '/org/gnome/Shell');
+        this.parent();
+
+        this.export(Gio.DBus.session, '/org/gnome/Shell');
         ExtensionSystem.connect('extension-state-changed',
                                 Lang.bind(this, this._extensionStateChanged));
     },
@@ -284,7 +286,6 @@ const GnomeShell = new Lang.Class({
     ShellVersion: Config.PACKAGE_VERSION,
 
     _extensionStateChanged: function(_, newState) {
-        this._dbusImpl.emit_signal('ExtensionStatusChanged',
-                                   GLib.Variant.new('(sis)', [newState.uuid, newState.state, newState.error]));
+        this.emit_signal('ExtensionStatusChanged', newState.uuid, newState.state, newState.error);
     }
 });
