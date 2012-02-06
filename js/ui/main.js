@@ -29,6 +29,7 @@ const LookingGlass = imports.ui.lookingGlass;
 const NetworkAgent = imports.ui.networkAgent;
 const NotificationDaemon = imports.ui.notificationDaemon;
 const WindowAttentionHandler = imports.ui.windowAttentionHandler;
+const ScreenShield = imports.ui.screenShield;
 const Scripting = imports.ui.scripting;
 const SessionMode = imports.ui.sessionMode;
 const ShellDBus = imports.ui.shellDBus;
@@ -52,6 +53,7 @@ let runDialog = null;
 let lookingGlass = null;
 let wm = null;
 let messageTray = null;
+let screenShield = null;
 let notificationDaemon = null;
 let windowAttentionHandler = null;
 let telepathyClient = null;
@@ -202,6 +204,7 @@ function start() {
     panel = new Panel.Panel();
     wm = new WindowManager.WindowManager();
     messageTray = new MessageTray.MessageTray();
+    screenShield = new ScreenShield.ScreenShield();
     keyboard = new Keyboard.Keyboard();
     notificationDaemon = new NotificationDaemon.NotificationDaemon();
     windowAttentionHandler = new WindowAttentionHandler.WindowAttentionHandler();
@@ -635,6 +638,10 @@ function _findModal(actor) {
             return i;
     }
     return -1;
+}
+
+function isInModalStack(actor) {
+    return _findModal(actor) != -1;
 }
 
 /**
