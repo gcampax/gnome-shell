@@ -395,6 +395,11 @@ gnome_shell_plugin_xevent_filter (MetaPlugin *plugin,
   if (_shell_global_check_xdnd_event (shell_plugin->global, xev))
     return TRUE;
 
+#ifdef HAVE_WAYLAND
+  if (meta_is_wayland_compositor ())
+    return FALSE;
+#endif
+
   return clutter_x11_handle_event (xev) != CLUTTER_X11_FILTER_CONTINUE;
 }
 
