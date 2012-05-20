@@ -86,7 +86,8 @@ const _modes = {
               hasRunDialog: true,
               hasWorkspaces: true,
               createSession: Main.createUserSession,
-              extraStylesheet: null,
+              // FIXME: merge back in main stylesheet
+              extraStylesheet: global.datadir + '/theme/gdm.css',
               statusArea: {
                   order: [
                       'input-method', 'a11y', 'keyboard', 'volume', 'bluetooth',
