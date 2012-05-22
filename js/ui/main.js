@@ -203,8 +203,8 @@ function start() {
     statusIconDispatcher = new StatusIconDispatcher.StatusIconDispatcher();
     panel = new Panel.Panel();
     wm = new WindowManager.WindowManager();
-    messageTray = new MessageTray.MessageTray();
     screenShield = new ScreenShield.ScreenShield();
+    messageTray = new MessageTray.MessageTray();
     keyboard = new Keyboard.Keyboard();
     notificationDaemon = new NotificationDaemon.NotificationDaemon();
     windowAttentionHandler = new WindowAttentionHandler.WindowAttentionHandler();
@@ -522,6 +522,7 @@ function notify(msg, details) {
     messageTray.add(source);
     let notification = new MessageTray.Notification(source, msg, details);
     notification.setTransient(true);
+    notification.setPrivacySensitive(false);
     source.notify(notification);
 }
 

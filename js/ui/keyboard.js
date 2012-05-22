@@ -556,5 +556,9 @@ const KeyboardSource = new Lang.Class({
 
     open: function() {
         this._keyboard.show();
+    },
+
+    get privacySensitive() {
+        return false;
     }
 });
