@@ -28,6 +28,8 @@ const ScreenShield = new Lang.Class({
     Name: 'ScreenShield',
 
     _init: function() {
+        this.actor = Main.layoutManager.screenShieldGroup;
+
         this._presence = new GnomeSession.Presence(Lang.bind(this, function(proxy, error) {
             if (error) {
                 logError(error, 'Error while reading gnome-session presence');
@@ -44,18 +46,12 @@ const ScreenShield = new Lang.Class({
 
         this._isModal = false;
         this._isLocked = false;
-        this._group = new St.Widget({ x: 0,
-                                      y: 0 });
-        Main.uiGroup.add_actor(this._group);
-        let constraint = new Clutter.BindConstraint({ source: global.stage,
-                                                      coordinate: Clutter.BindCoordinate.POSITION | Clutter.BindCoordinate.SIZE });
-        this._group.add_constraint(constraint);
 
-        this._lightbox = new Lightbox.Lightbox(this._group,
+        this._lightbox = new Lightbox.Lightbox(Main.uiGroup,
                                                { inhibitEvents: true, fadeInTime: 10, fadeFactor: 1 });
+
         this._background = Meta.BackgroundActor.new_for_screen(global.screen);
-        this._background.hide();
-        Main.uiGroup.add_actor(this._background);
+        this.actor.add_actor(this._background);
     },
 
     _onStatusChanged: function(status) {
@@ -69,13 +65,11 @@ const ScreenShield = new Lang.Class({
                 this._dialog = null;
             }
 
-            this._group.reactive = true;
             if (!this._isModal) {
-                Main.pushModal(this._group);
+                Main.pushModal(this.actor);
                 this._isModal = true;
             }
 
-            this._group.raise_top();
             this._lightbox.show();
         } else {
             log('status is now ' + status);
@@ -87,8 +81,7 @@ const ScreenShield = new Lang.Class({
             let shouldLock = lightboxWasShown && this._settings.get_boolean(LOCK_ENABLED_KEY);
             if (shouldLock || this._isLocked) {
                 this._isLocked = true;
-                this._background.show();
-                this._background.raise_top();
+                this.actor.show();
 
                 this._showUnlockDialog();
             } else if (this._isModal) {
@@ -98,10 +91,10 @@ const ScreenShield = new Lang.Class({
     },
 
     _popModal: function() {
-        this._group.reactive = false;
-        Main.popModal(this._group);
+        this._lightbox.hide();
 
-        this._background.hide();
+        Main.popModal(this.actor);
+        this.actor.hide();
 
         this._isModal = false;
         this._isLocked = false;
