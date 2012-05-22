@@ -137,5 +137,9 @@ const ScreenShield = new Lang.Class({
 
         this._popModal();
     },
+
+    get locked() {
+        return this._isLocked;
+    }
 });
 Signals.addSignalMethods(ScreenShield.prototype);

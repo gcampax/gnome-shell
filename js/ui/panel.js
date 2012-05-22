@@ -466,6 +466,11 @@ const AppMenuButton = new Lang.Class({
     },
 
     _sync: function() {
+        if (Main.screenShield.locked) {
+            this.hide();
+            return;
+        }
+
         let tracker = Shell.WindowTracker.get_default();
         let focusedApp = tracker.focus_app;
         let lastStartedApp = null;
@@ -751,10 +756,11 @@ const PanelCorner = new Lang.Class({
             return null;
 
         // Start at the back and work backward
-        let index = children.length - 1;
-        while (!children[index].visible && index >= 0)
-            index--;
-
+        let index;
+        for (index = children.length - 1; index >= 0; index--) {
+            if (children[index].visible)
+                break;
+        }
         if (index < 0)
             return null;
 
@@ -775,10 +781,11 @@ const PanelCorner = new Lang.Class({
             return null;
 
         // Start at the front and work forward
-        let index = 0;
-        while (!children[index].visible && index < children.length)
-            index++;
-
+        let index;
+        for (index = 0; index < children.length; index++) {
+            if (children[index].visible)
+                break;
+        }
         if (index == children.length)
             return null;
 
@@ -905,6 +912,8 @@ const Panel = new Lang.Class({
         Main.overview.connect('hiding', Lang.bind(this, function () {
             this.actor.remove_style_class_name('in-overview');
         }));
+
+        Main.screenShield.connect('lock-status-changed', Lang.bind(this, this._onLockStateChanged));
 
         this._menus = new PopupMenu.PopupMenuManager(this);
 
@@ -1159,5 +1168,14 @@ const Panel = new Lang.Class({
         let box = icon.get_parent();
         if (box && box._delegate instanceof PanelMenu.ButtonBox)
             box.destroy();
+    },
+
+    _onLockStateChanged: function(shield, locked) {
+        this._activities.visible = !locked;
+        this._appMenu._sync();
+        this._dateMenu.setLockedState(locked);
+
+        for (let id in this._statusArea)
+            this._statusArea[id].setLockedState(locked);
     },
 });

@@ -32,14 +32,6 @@ const LayoutManager = new Lang.Class({
 
         this._chrome = new Chrome(this);
 
-        this.panelBox = new St.BoxLayout({ name: 'panelBox',
-                                           vertical: true });
-        this.addChrome(this.panelBox, { affectsStruts: true,
-                                        trackFullscreen: true
-                                      });
-        this.panelBox.connect('allocation-changed',
-                              Lang.bind(this, this._updatePanelBarriers));
-
         this.screenShieldGroup = new St.Widget({ name: 'screenShieldGroup',
                                                  visible: false
                                                });
@@ -50,6 +42,14 @@ const LayoutManager = new Lang.Class({
                                                     });
         this.screenShieldGroup.add_constraint(constraint);
         this.addChrome(this.screenShieldGroup);
+
+        this.panelBox = new St.BoxLayout({ name: 'panelBox',
+                                           vertical: true });
+        this.addChrome(this.panelBox, { affectsStruts: true,
+                                        trackFullscreen: true
+                                      });
+        this.panelBox.connect('allocation-changed',
+                              Lang.bind(this, this._updatePanelBarriers));
 
         this.trayBox = new St.BoxLayout({ name: 'trayBox' }); 
         this.addChrome(this.trayBox);

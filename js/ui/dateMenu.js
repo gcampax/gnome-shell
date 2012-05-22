@@ -108,18 +108,21 @@ const DateMenuButton = new Lang.Class({
             item.actor.reparent(vbox);
         }
 
+        this._eventItems = [ ];
+
         if (Main.sessionMode.showCalendarEvents) {
             // Add vertical separator
-
             item = new St.DrawingArea({ style_class: 'calendar-vertical-separator',
                                         pseudo_class: 'highlighted' });
             item.connect('repaint', Lang.bind(this, _onVertSepRepaint));
             hbox.add(item);
+            this._eventItems.push(item);
 
             // Fill up the second column
             vbox = new St.BoxLayout({name:     'calendarEventsArea',
                                      vertical: true});
             hbox.add(vbox, { expand: true });
+            this._eventItems.push(vbox);
 
             // Event list
             vbox.add(this._eventList.actor, { expand: true });
@@ -240,5 +243,14 @@ const DateMenuButton = new Lang.Class({
                 Util.spawnCommandLine(tool)
             }
         }
+    },
+
+    setLockedState: function(locked) {
+        // Hide events
+        for (let i = 0; i < this._eventItems.length; i++) {
+            this._eventItems[i].visible = !locked;
+        }
+
+        this.menu.setSettingsVisibility(!locked);
     }
 });

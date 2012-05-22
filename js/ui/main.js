@@ -201,9 +201,9 @@ function start() {
     overview = new Overview.Overview();
     magnifier = new Magnifier.Magnifier();
     statusIconDispatcher = new StatusIconDispatcher.StatusIconDispatcher();
+    screenShield = new ScreenShield.ScreenShield();
     panel = new Panel.Panel();
     wm = new WindowManager.WindowManager();
-    screenShield = new ScreenShield.ScreenShield();
     messageTray = new MessageTray.MessageTray();
     keyboard = new Keyboard.Keyboard();
     notificationDaemon = new NotificationDaemon.NotificationDaemon();

@@ -902,7 +902,20 @@ const PopupMenuBase = new Lang.Class({
                            Main.overview.hide();
                            app.activate();
                        });
+
+        if (!this._settingsActions)
+            this._settingsActions = { };
+        this._settingsActions[desktopFile] = menuItem;
+
         return menuItem;
+    },
+
+    setSettingsVisibility: function(visible) {
+        for (let id in this._settingsActions) {
+            let item = this._settingsActions[id];
+
+            item.actor.visible = visible;
+        }
     },
 
     isEmpty: function() {

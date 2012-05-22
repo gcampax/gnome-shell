@@ -1678,6 +1678,12 @@ const NMApplet = new Lang.Class({
         }));
     },
 
+    setLockedState: function(locked) {
+        // FIXME: this is not enough!
+
+        this.menu.setSettingsVisibility(!locked);
+    },
+
     _ensureSource: function() {
         if (!this._source) {
             this._source = new MessageTray.Source(_("Network Manager"),

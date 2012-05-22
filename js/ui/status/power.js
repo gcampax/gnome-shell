@@ -86,6 +86,10 @@ const Indicator = new Lang.Class({
         this._devicesChanged();
     },
 
+    setLockedState: function(locked) {
+        this.menu.setSettingsVisibility(!locked);
+    },
+
     _readPrimaryDevice: function() {
         this._proxy.GetPrimaryDeviceRemote(Lang.bind(this, function(result, error) {
             if (error) {
