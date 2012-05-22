@@ -102,6 +102,9 @@ const ScreenShield = new Lang.Class({
         Main.popModal(this._group);
 
         this._background.hide();
+
+        this._isModal = false;
+        this._isLocked = false;
     },
 
     _showUnlockDialog: function() {
