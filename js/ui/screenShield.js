@@ -74,11 +74,7 @@ const ScreenShield = new Lang.Class({
 
             let shouldLock = lightboxWasShown && this._settings.get_boolean(LOCK_ENABLED_KEY);
             if (shouldLock || this._isLocked) {
-                this._isLocked = true;
-                this.actor.show();
-
-                this._showUnlockDialog();
-                this.emit('lock-status-changed', true);
+                this.lock();
             } else if (this._isModal) {
                 this._popModal();
             }
@@ -140,6 +136,22 @@ const ScreenShield = new Lang.Class({
 
     get locked() {
         return this._isLocked;
+    },
+
+    lock: function() {
+        if (!this._isModal) {
+            Main.pushModal(this.actor);
+            this._isModal = true;
+        }
+
+        let wasLocked = this._isLocked;
+        this._isLocked = true;
+        this.actor.show();
+
+        this._showUnlockDialog();
+
+        if (!wasLocked)
+            this.emit('lock-status-changed', true);
     }
 });
 Signals.addSignalMethods(ScreenShield.prototype);
