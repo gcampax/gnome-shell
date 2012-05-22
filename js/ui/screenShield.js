@@ -4,6 +4,7 @@ const Clutter = imports.gi.Clutter;
 const Gio = imports.gi.Gio;
 const Lang = imports.lang;
 const Meta = imports.gi.Meta;
+const Signals = imports.signals;
 const St = imports.gi.St;
 
 const GnomeSession = imports.misc.gnomeSession;
@@ -55,12 +56,8 @@ const ScreenShield = new Lang.Class({
     },
 
     _onStatusChanged: function(status) {
-        log ("in _onStatusChanged");
         if (status == GnomeSession.PresenceStatus.IDLE) {
-            log("session gone idle");
-
             if (this._dialog) {
-                log('canceling existing dialog');
                 this._dialog.cancel();
                 this._dialog = null;
             }
@@ -72,10 +69,7 @@ const ScreenShield = new Lang.Class({
 
             this._lightbox.show();
         } else {
-            log('status is now ' + status);
-
             let lightboxWasShown = this._lightbox.shown;
-            log("this._lightbox.shown " + this._lightbox.shown);
             this._lightbox.hide();
 
             let shouldLock = lightboxWasShown && this._settings.get_boolean(LOCK_ENABLED_KEY);
@@ -84,6 +78,7 @@ const ScreenShield = new Lang.Class({
                 this.actor.show();
 
                 this._showUnlockDialog();
+                this.emit('lock-status-changed', true);
             } else if (this._isModal) {
                 this._popModal();
             }
@@ -98,6 +93,8 @@ const ScreenShield = new Lang.Class({
 
         this._isModal = false;
         this._isLocked = false;
+
+        this.emit('lock-status-changed', false);
     },
 
     _showUnlockDialog: function() {
@@ -141,3 +138,4 @@ const ScreenShield = new Lang.Class({
         this._popModal();
     },
 });
+Signals.addSignalMethods(ScreenShield.prototype);
