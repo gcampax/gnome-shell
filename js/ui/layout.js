@@ -33,7 +33,9 @@ const LayoutManager = new Lang.Class({
         this._chrome = new Chrome(this);
 
         this.screenShieldGroup = new St.Widget({ name: 'screenShieldGroup',
-                                                 visible: false
+                                                 visible: false,
+                                                 //layout_manager: new Clutter.BinLayout,
+                                                 clip_to_allocation: true,
                                                });
         // FIXME: This is going to slow everything down by a big factor
         // Need a better solution (like a layout manager?)

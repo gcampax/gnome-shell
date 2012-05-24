@@ -2045,3 +2045,15 @@ StScrollBar StButton#vhandle:hover
     -arrow-rise: 10px;
     -boxpointer-gap: 5px;
 }
+
+/* screen shield / unlock dialog */
+
+#screenShieldGroup {
+    background-color: #333333;
+}
+
+#screenShieldGroup .arrow {
+    color: #333333;
+    width: 100px;
+    height: 50px;
+}

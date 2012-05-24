@@ -11,9 +11,15 @@ const GnomeSession = imports.misc.gnomeSession;
 const Lightbox = imports.ui.lightbox;
 const UnlockDialog = imports.ui.unlockDialog;
 const Main = imports.ui.main;
+const Tweener = imports.ui.tweener;
 
 const SCREENSAVER_SCHEMA = 'org.gnome.desktop.screensaver';
 const LOCK_ENABLED_KEY = 'lock-enabled';
+
+const CURTAIN_SLIDE_TIME = 1.2;
+// fraction of screen height the arrow must reach before completing
+// the slide up automatically
+const ARROW_DRAG_TRESHOLD = 0.4;
 
 /**
  * To test screen shield, make sure to kill gnome-screensaver.
@@ -30,6 +36,47 @@ const ScreenShield = new Lang.Class({
 
     _init: function() {
         this.actor = Main.layoutManager.screenShieldGroup;
+
+        this._lockScreenGroup = new St.Widget({ x_expand: true,
+                                                y_expand: true,
+                                                reactive: true,
+                                                can_focus: true
+                                              });
+        this._lockScreenGroup.connect('key-release-event',
+                                      Lang.bind(this, this._onLockScreenKeyRelease));
+
+        this._background = Meta.BackgroundActor.new_for_screen(global.screen);
+        this._lockScreenGroup.add_actor(this._background);
+
+        // FIXME: build the rest of the lock screen here
+
+        this._lockDialogGroup = new St.Widget({ x_expand: true,
+                                                y_expand: true });
+
+        this._arrow = new St.DrawingArea({ style_class: 'arrow',
+                                           reactive: true
+                                         });
+        this._arrow.connect('repaint', Lang.bind(this, this._drawArrow));
+
+        this._arrowGrabbed = false;
+        // offset of the mouse from the bottom of the stage when starting the drag
+        this._arrowMouseOffset = 0;
+        this._arrow.connect('button-press-event', Lang.bind(this, this._onArrowButtonPress));
+        this._arrow.connect('button-release-event', Lang.bind(this, this._onArrowButtonRelease));
+        this._arrow.connect('motion-event', Lang.bind(this, this._onArrowMotion));
+
+        let constraint = new Clutter.AlignConstraint({ source: this._lockScreenGroup,
+                                                       align_axis: Clutter.AlignAxis.X_AXIS,
+                                                       factor: 0.5 });
+        this._arrow.add_constraint(constraint);
+        constraint = new Clutter.AlignConstraint({ source: this._lockScreenGroup,
+                                                   align_axis: Clutter.AlignAxis.Y_AXIS,
+                                                   factor: 1.0 });
+        this._arrow.add_constraint(constraint);
+
+        this.actor.add_actor(this._lockDialogGroup);
+        this.actor.add_actor(this._lockScreenGroup);
+        this.actor.add_actor(this._arrow);
 
         this._presence = new GnomeSession.Presence(Lang.bind(this, function(proxy, error) {
             if (error) {
@@ -50,9 +97,93 @@ const ScreenShield = new Lang.Class({
 
         this._lightbox = new Lightbox.Lightbox(Main.uiGroup,
                                                { inhibitEvents: true, fadeInTime: 10, fadeFactor: 1 });
+    },
 
-        this._background = Meta.BackgroundActor.new_for_screen(global.screen);
-        this.actor.add_actor(this._background);
+    _onLockScreenKeyRelease: function(actor, event) {
+        if (event.get_key_symbol() == Clutter.KEY_Escape) {
+            if (this._arrowGrabbed) {
+                Clutter.ungrab_pointer();
+                this._arrowGrabbed = false;
+            }
+
+            this._showUnlockDialog();
+        }
+    },
+
+    _drawArrow: function() {
+        let cr = this._arrow.get_context();
+        let [w, h] = this._arrow.get_surface_size();
+        let node = this._arrow.get_theme_node();
+
+        Clutter.cairo_set_source_color(cr, node.get_foreground_color());
+
+        cr.moveTo(0, h);
+        cr.lineTo(w/2, 0);
+        cr.lineTo(w, h);
+        cr.fill();
+
+        // FIXME: it could be useful to generalize this code
+        // to handle borders too
+        // or maybe even better, make it into a
+        // shell_util_render_arrow(StWidget, cairo_t)
+        // in the style of gtk_render_arrow
+    },
+
+    _onArrowButtonPress: function(actor, event) {
+        if (event.get_button() != 1)
+            return false;
+
+        if (!this._arrowGrabbed) {
+            let [x,y] = event.get_coords();
+            let [x0,y0] = actor.get_transformed_position();
+            this._arrowMouseOffset = y0 + actor.height - y;
+
+            Clutter.grab_pointer(this._arrow);
+            this._arrowGrabbed = true;
+            Tweener.removeTweens(this._lockScreenGroup);
+        }
+        return true;
+    },
+
+    _onArrowButtonRelease: function(actor, event) {
+        if (this._arrowGrabbed) {
+            Clutter.ungrab_pointer();
+            this._arrowGrabbed = false;
+
+            // restore the lock screen to its original place
+            // try to use the same speed as the normal animation
+            let h = global.stage.height;
+            let time = CURTAIN_SLIDE_TIME * (-this._lockScreenGroup.y) / h;
+            Tweener.removeTweens(this._lockScreenGroup);
+            Tweener.addTween(this._lockScreenGroup,
+                             { y: 0,
+                               time: time,
+                               transition: 'linear',
+                               onComplete: function() {
+                                   this.fixed_position_set = false;
+                               }
+                             });
+        }
+
+        return true;
+    },
+
+    _onArrowMotion: function(actor, event) {
+        if (!this._arrowGrabbed)
+            return false;
+
+        let [x,y] = event.get_coords();
+        this._lockScreenGroup.y = -(global.stage.height - y);
+
+        if (this._lockScreenGroup.y < -(ARROW_DRAG_TRESHOLD * global.stage.height)) {
+            Clutter.ungrab_pointer();
+            this._arrowGrabbed = false;
+
+            // Complete motion automatically
+            this._showUnlockDialog();
+        }
+
+        return true;
     },
 
     _onStatusChanged: function(status) {
@@ -73,15 +204,24 @@ const ScreenShield = new Lang.Class({
             this._lightbox.hide();
 
             let shouldLock = lightboxWasShown && this._settings.get_boolean(LOCK_ENABLED_KEY);
-            if (shouldLock || this._isLocked) {
+            if (this._isLocked || shouldLock) {
                 this.lock();
             } else if (this._isModal) {
-                this._popModal();
+                this.unlock();
             }
         }
     },
 
-    _popModal: function() {
+    get locked() {
+        return this._isLocked;
+    },
+
+    unlock: function() {
+        if (this._dialog) {
+            this._dialog.destroy();
+            this._dialog = null;
+        }
+
         this._lightbox.hide();
 
         Main.popModal(this.actor);
@@ -93,65 +233,65 @@ const ScreenShield = new Lang.Class({
         this.emit('lock-status-changed', false);
     },
 
-    _showUnlockDialog: function() {
-        if (this._dialog) {
-            log ('_showUnlockDialog called again when the dialog was already there');
-            return;
-        }
-
-        try {
-            this._dialog = new UnlockDialog.UnlockDialog();
-            this._dialog.connect('failed', Lang.bind(this, this._onUnlockFailed));
-            this._dialog.connect('unlocked', Lang.bind(this, this._onUnlockSucceded));
-
-            if (!this._dialog.open(global.get_current_time()))
-                throw new Error('open failed!')
-
-            this._dialog._group.raise_top();
-        } catch(e) {
-            // FIXME: this is for debugging purposes
-            logError(e, 'error while creating unlock dialog');
-
-            this._popModal();
-        }
-    },
-
-    _onUnlockFailed: function() {
-        // FIXME: for now, on failure we just destroy the dialog and create a new
-        // one (this is what gnome-screensaver does)
-        // in the future, we may want to go back to the lock screen instead
-
-        this._dialog.destroy();
-        this._dialog = null;
-
-        this._showUnlockDialog();
-    },
-
-    _onUnlockSucceded: function() {
-        this._dialog.destroy();
-        this._dialog = null;
-
-        this._popModal();
-    },
-
-    get locked() {
-        return this._isLocked;
-    },
-
     lock: function() {
         if (!this._isModal) {
             Main.pushModal(this.actor);
             this._isModal = true;
         }
 
-        let wasLocked = this._isLocked;
         this._isLocked = true;
         this.actor.show();
+        this._resetLockScreen();
 
-        this._showUnlockDialog();
+        this.emit('lock-status-changed', true);
+    },
 
-        if (!wasLocked)
-            this.emit('lock-status-changed', true);
+    _showUnlockDialog: function() {
+        if (this._dialog) {
+            log ('_showUnlockDialog called again when the dialog was already there');
+            return;
+        }
+
+        // Tween the lock screen out of screen
+        // try to use the same speed regardless of original position
+        let h = global.stage.height;
+        let time = CURTAIN_SLIDE_TIME * (h + this._lockScreenGroup.y) / h;
+        Tweener.removeTweens(this._lockScreenGroup);
+        Tweener.addTween(this._lockScreenGroup,
+                         { y: -h,
+                           time: time,
+                           transition: 'linear',
+                           onComplete: Lang.bind(this, this._hideLockScreen),
+                         });
+
+        this._dialog = new UnlockDialog.UnlockDialog(this._lockDialogGroup);
+        this._dialog.connect('failed', Lang.bind(this, this._onUnlockFailed));
+        this._dialog.connect('unlocked', Lang.bind(this, this._onUnlockSucceded));
+        this._dialog.open(global.get_current_time());
+    },
+
+    _onUnlockFailed: function() {
+        this._dialog.destroy();
+        this._dialog = null;
+
+        this._resetLockScreen();
+    },
+
+    _onUnlockSucceded: function() {
+        this.unlock();
+    },
+
+    _hideLockScreen: function() {
+        this._arrow.hide();
+        this._lockScreenGroup.hide();
+    },
+
+    _resetLockScreen: function() {
+        this._lockScreenGroup.fixed_position_set = false;
+        this._lockScreenGroup.show();
+        this._arrow.show();
+
+        this._lockScreenGroup.grab_key_focus();
     }
 });
 Signals.addSignalMethods(ScreenShield.prototype);
