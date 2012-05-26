@@ -39,7 +39,8 @@ const _modes = {
              hasRunDialog: false,
              hasWorkspaces: false,
              createSession: Main.createGDMSession,
-             extraStylesheet: global.datadir + '/theme/gdm.css',
+             createUnlockDialog: Main.createGDMLoginDialog,
+             extraStylesheet: null,
              statusArea: {
                  order: [
                      'a11y', 'display', 'keyboard',
@@ -86,8 +87,8 @@ const _modes = {
               hasRunDialog: true,
               hasWorkspaces: true,
               createSession: Main.createUserSession,
-              // FIXME: merge back in main stylesheet
-              extraStylesheet: global.datadir + '/theme/gdm.css',
+              createUnlockDialog: Main.createSessionUnlockDialog,
+              extraStylesheet: null,
               statusArea: {
                   order: [
                       'input-method', 'a11y', 'keyboard', 'volume', 'bluetooth',
@@ -114,6 +115,8 @@ const SessionMode = new Lang.Class({
 
         this._createSession = params.createSession;
         delete params.createSession;
+        this._createUnlockDialog = params.createUnlockDialog;
+        delete params.createUnlockDialog;
 
         Lang.copyProperties(params, this);
     },
@@ -121,5 +124,12 @@ const SessionMode = new Lang.Class({
     createSession: function() {
         if (this._createSession)
             this._createSession();
-    }
+    },
+
+    createUnlockDialog: function() {
+        if (this._createUnlockDialog)
+            return this._createUnlockDialog.apply(this, arguments);
+        else
+            return null;
+    },
 });

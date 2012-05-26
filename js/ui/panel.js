@@ -1171,8 +1171,10 @@ const Panel = new Lang.Class({
     },
 
     _onLockStateChanged: function(shield, locked) {
-        this._activities.visible = !locked;
-        this._appMenu._sync();
+        if (this._activities)
+            this._activities.visible = !locked;
+        if (this._appMenu)
+            this._appMenu._sync();
         this._dateMenu.setLockedState(locked);
 
         for (let id in this._statusArea)

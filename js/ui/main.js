@@ -34,6 +34,7 @@ const Scripting = imports.ui.scripting;
 const SessionMode = imports.ui.sessionMode;
 const ShellDBus = imports.ui.shellDBus;
 const TelepathyClient = imports.ui.telepathyClient;
+const UnlockDialog = imports.ui.unlockDialog;
 const WindowManager = imports.ui.windowManager;
 const Magnifier = imports.ui.magnifier;
 const XdndHandler = imports.ui.xdndHandler;
@@ -91,14 +92,29 @@ function createUserSession() {
 }
 
 function createGDMSession() {
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, function() {
+        screenShield.showDialog();
+    });
+}
+
+function createGDMLoginDialog(parentActor) {
     // We do this this here instead of at the top to prevent GDM
     // related code from getting loaded in normal user sessions
+    // FIXME: this is not true because of the screenshield
     const LoginDialog = imports.gdm.loginDialog;
 
-    let loginDialog = new LoginDialog.LoginDialog();
+    let loginDialog = new LoginDialog.LoginDialog(parentActor);
     loginDialog.connect('loaded', function() {
                             loginDialog.open();
                         });
+    return [loginDialog, true];
+}
+
+function createSessionUnlockDialog(parentActor) {
+    let dialog = new UnlockDialog.UnlockDialog(parentActor);
+    dialog.open();
+
+    return [dialog, false];
 }
 
 function createInitialSetupSession() {
