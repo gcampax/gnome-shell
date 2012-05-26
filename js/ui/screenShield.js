@@ -40,7 +40,8 @@ const ScreenShield = new Lang.Class({
         this._lockScreenGroup = new St.Widget({ x_expand: true,
                                                 y_expand: true,
                                                 reactive: true,
-                                                can_focus: true
+                                                can_focus: true,
+                                                layout_manager: new Clutter.BinLayout
                                               });
         this._lockScreenGroup.connect('key-release-event',
                                       Lang.bind(this, this._onLockScreenKeyRelease));
@@ -50,11 +51,14 @@ const ScreenShield = new Lang.Class({
 
         // FIXME: build the rest of the lock screen here
 
-        this._lockDialogGroup = new St.Widget({ x_expand: true,
-                                                y_expand: true });
-
         this._arrow = new St.DrawingArea({ style_class: 'arrow',
-                                           reactive: true
+                                           reactive: true,
+                                           x_align: Clutter.ActorAlign.CENTER,
+                                           y_align: Clutter.ActorAlign.END,
+                                           // HACK: without these, ClutterBinLayout
+                                           // ignores alignment properties on the actor
+                                           x_expand: true,
+                                           y_expand: true
                                          });
         this._arrow.connect('repaint', Lang.bind(this, this._drawArrow));
 
@@ -65,18 +69,13 @@ const ScreenShield = new Lang.Class({
         this._arrow.connect('button-release-event', Lang.bind(this, this._onArrowButtonRelease));
         this._arrow.connect('motion-event', Lang.bind(this, this._onArrowMotion));
 
-        let constraint = new Clutter.AlignConstraint({ source: this._lockScreenGroup,
-                                                       align_axis: Clutter.AlignAxis.X_AXIS,
-                                                       factor: 0.5 });
-        this._arrow.add_constraint(constraint);
-        constraint = new Clutter.AlignConstraint({ source: this._lockScreenGroup,
-                                                   align_axis: Clutter.AlignAxis.Y_AXIS,
-                                                   factor: 1.0 });
-        this._arrow.add_constraint(constraint);
+        this._lockScreenGroup.add_actor(this._arrow);
+
+        this._lockDialogGroup = new St.Widget({ x_expand: true,
+                                                y_expand: true });
 
         this.actor.add_actor(this._lockDialogGroup);
         this.actor.add_actor(this._lockScreenGroup);
-        this.actor.add_actor(this._arrow);
 
         this._presence = new GnomeSession.Presence(Lang.bind(this, function(proxy, error) {
             if (error) {
