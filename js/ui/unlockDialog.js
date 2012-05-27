@@ -14,6 +14,7 @@ const St = imports.gi.St;
 
 const Main = imports.ui.main;
 const ModalDialog = imports.ui.modalDialog;
+const ShellEntry = imports.ui.shellEntry;
 
 const Fprint = imports.gdm.fingerprint;
 const GdmLoginDialog = imports.gdm.loginDialog;
@@ -203,6 +204,10 @@ const UnlockDialog = new Lang.Class({
 
         this._promptEntry = new St.Entry({ style_class: 'login-dialog-prompt-entry',
                                            can_focus: true });
+        ShellEntry.addContextMenu(this._promptEntry);
+        this.setInitialKeyFocus(this._promptEntry);
+        this._promptEntry.clutter_text.connect('activate', Lang.bind(this, this._doUnlock));
+
         this._promptLayout.add(this._promptEntry,
                             { expand: true,
                               x_fill: true,
@@ -296,6 +301,7 @@ const UnlockDialog = new Lang.Class({
         this._promptLabel.text = question;
         this._promptEntry.text = '';
         this._promptEntry.clutter_text.set_password_char('');
+        this._promptEntry.menu.isPassword = false;
 
         this._currentQuery = serviceName;
         this._updateOkButton(true);
@@ -309,6 +315,7 @@ const UnlockDialog = new Lang.Class({
         this._promptLabel.text = secretQuestion;
         this._promptEntry.text = '';
         this._promptEntry.clutter_text.set_password_char('\u25cf');
+        this._promptEntry.menu.isPassword = true;
 
         this._currentQuery = serviceName;
         this._updateOkButton(true);
