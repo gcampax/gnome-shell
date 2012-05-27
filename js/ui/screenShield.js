@@ -2,6 +2,7 @@
 
 const Clutter = imports.gi.Clutter;
 const Gio = imports.gi.Gio;
+const GnomeDesktop = imports.gi.GnomeDesktop;
 const Lang = imports.lang;
 const Meta = imports.gi.Meta;
 const Signals = imports.signals;
@@ -19,6 +20,73 @@ const CURTAIN_SLIDE_TIME = 1.2;
 // fraction of screen height the arrow must reach before completing
 // the slide up automatically
 const ARROW_DRAG_TRESHOLD = 0.4;
+
+const Clock = new Lang.Class({
+    Name: 'ScreenShieldClock',
+
+    CLOCK_FORMAT_KEY: 'clock-format',
+    CLOCK_SHOW_SECONDS_KEY: 'clock-show-seconds',
+
+    _init: function() {
+        this.actor = new St.BoxLayout({ style_class: 'screen-shield-clock',
+                                        vertical: true });
+
+        this._time = new St.Label({ style_class: 'screen-shield-clock-time' });
+        this._date = new St.Label({ style_class: 'screen-shield-clock-date' });
+
+        this.actor.add(this._time, { x_align: St.Align.MIDDLE });
+        this.actor.add(this._date, { x_align: St.Align.MIDDLE });
+
+        // I wonder why dateMenu.js doesn't use this, it was designed exactly
+        // for that
+        this._wallClock = new GnomeDesktop.WallClock();
+        this._wallClock.connect('notify::clock', Lang.bind(this, this._updateClock));
+
+        this._settings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
+        // No need to connect signals, GnomeWallClock does that automatically
+
+        this._updateClock();
+    },
+
+    _updateClock: function() {
+        // Ignore the :clock property of GnomeWallClock, as we want
+        // to format it differently
+        // Ignore clock-show-date setting, as we show it separately
+
+        let format = this._settings.get_string(this.CLOCK_FORMAT_KEY);
+        let showSeconds = this._settings.get_boolean(this.CLOCK_SHOW_SECONDS_KEY);
+
+        let clockFormat;
+        switch (format) {
+            case '24h':
+            /* Translators: This is the time format without date used
+               in 24-hour mode. */
+            clockFormat = showSeconds ? _("%0R:%S")
+                : _("%0R");
+            break;
+            case '12h':
+            default:
+            /* Translators: This is a time format without date used
+               for AM/PM. */
+            clockFormat = showSeconds ? _("%l:%M:%S %p")
+                : _("%l:%M %p");
+            break;
+        }
+
+        /* Translators: This is a time format for a date in
+           long format */
+        let dateFormat = _("%A, %B %d");
+
+        let date = new Date();
+        this._time.text = date.toLocaleFormat(clockFormat);
+        this._date.text = date.toLocaleFormat(dateFormat);
+    },
+
+    destroy: function() {
+        this.actor.destroy();
+        this._wallClock.run_dispose();
+    }
+});
 
 /**
  * To test screen shield, make sure to kill gnome-screensaver.
@@ -92,6 +160,7 @@ const ScreenShield = new Lang.Class({
 
         this._isModal = false;
         this._isLocked = false;
+        this._hasLockScreen = false;
 
         this._lightbox = new Lightbox.Lightbox(Main.uiGroup,
                                                { inhibitEvents: true, fadeInTime: 10, fadeFactor: 1 });
@@ -217,6 +286,9 @@ const ScreenShield = new Lang.Class({
     },
 
     unlock: function() {
+        if (this._hasLockScreen)
+            this._clearLockScreen();
+
         if (this._keepDialog) {
             // The dialog must be kept alive,
             // so immediately go back to it
@@ -243,6 +315,9 @@ const ScreenShield = new Lang.Class({
     },
 
     lock: function() {
+        if (!this._hasLockScreen)
+            this._prepareLockScreen();
+
         if (!this._isModal) {
             Main.pushModal(this.actor);
             this._isModal = true;
@@ -321,6 +396,32 @@ const ScreenShield = new Lang.Class({
         this._arrow.show();
 
         this._lockScreenGroup.grab_key_focus();
+    },
+
+    // Some of the actors in the lock screen are heavy in
+    // resources, so we only create them when needed
+    _prepareLockScreen: function() {
+        this._lockScreenContentsBox = new St.BoxLayout({ x_align: Clutter.ActorAlign.CENTER,
+                                                         y_align: Clutter.ActorAlign.CENTER,
+                                                         x_expand: true,
+                                                         y_expand: true,
+                                                         vertical: true });
+        this._clock = new Clock();
+        this._lockScreenContentsBox.add(this._clock.actor, { x_fill: true,
+                                                             y_fill: true });
+
+        this._lockScreenGroup.add_actor(this._lockScreenContentsBox);
+
+        this._hasLockScreen = true;
+    },
+
+    _clearLockScreen: function() {
+        this._clock.destroy();
+        this._clock = null;
+
+        this._lockScreenContentsBox.destroy();
+
+        this._hasLockScreen = false;
     }
 });
 Signals.addSignalMethods(ScreenShield.prototype);

@@ -246,11 +246,6 @@ const DateMenuButton = new Lang.Class({
     },
 
     setLockedState: function(locked) {
-        // Hide events
-        for (let i = 0; i < this._eventItems.length; i++) {
-            this._eventItems[i].visible = !locked;
-        }
-
-        this.menu.setSettingsVisibility(!locked);
+        this.actor.visible = !locked;
     }
 });
