@@ -989,7 +989,7 @@ Signals.addSignalMethods(Notification.prototype);
 const Source = new Lang.Class({
     Name: 'MessageTraySource',
 
-    ICON_SIZE: 24,
+    ICON_SIZE: 48,
 
     _init: function(title, iconName, iconType) {
         this.title = title;
