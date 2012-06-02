@@ -420,7 +420,7 @@ const Notification = new Lang.Class({
         // 'transient' is a reserved keyword in JS, so we have to use an alternate variable name
         this.isTransient = false;
         this.expanded = false;
-        this.privacySensitive = true;
+        this.showWhenLocked = false;
         this._destroyed = false;
         this._useActionIcons = false;
         this._customContent = false;
@@ -804,8 +804,12 @@ const Notification = new Lang.Class({
         this.isTransient = isTransient;
     },
 
-    setPrivacySensitive: function(sensitive) {
-        this.privacySensitive = sensitive;
+    setShowWhenLocked: function(show) {
+        if (show && !this.isTransient) {
+            throw new Error('ShowWhenLocked can only be set on a transient notification');
+        }
+
+        this.showWhenLocked = show;
     },
 
     setUseActionIcons: function(useIcons) {
@@ -1006,6 +1010,7 @@ const Source = new Lang.Class({
             }));
         this._actorDestroyed = false;
 
+        this.count = 0;
         this._counterLabel = new St.Label();
         this._counterBin = new St.Bin({ style_class: 'summary-source-counter',
                                         child: this._counterLabel });
@@ -1070,6 +1075,7 @@ const Source = new Lang.Class({
         if (this._actorDestroyed)
             return;
 
+        this.count = count;
         this._counterBin.visible = visible;
         this._counterLabel.set_text(count.toString());
     },
@@ -1175,20 +1181,9 @@ const Source = new Lang.Class({
         this.destroy();
     },
 
-    get privacySensitive() {
-        // Mark as sensitive if there are no notifications, to account
-        // for legacy tray items
-        if (this.notifications.length == 0)
-            return true;
-
-        for (let i = 0; i < this.notifications.length; i++) {
-            let n = this.notifications[i];
-            if (n.privacySensitive)
-                return true;
-        }
-
-        return false;
-    },
+    hasResidentNotification: function() {
+        return this.notifications.some(function(n) { return n.resident; });
+    }
 });
 Signals.addSignalMethods(Source.prototype);
 
@@ -1528,7 +1523,7 @@ const MessageTray = new Lang.Class({
                 }
             }));
 
-        this._isScreenLocked = true;
+        this._isScreenLocked = false;
         Main.screenShield.connect('lock-status-changed', Lang.bind(this, this._onScreenLockStatusChanged));
 
         this._summaryItems = [];
@@ -1637,6 +1632,12 @@ const MessageTray = new Lang.Class({
         // *first* and not show the summary item until after it hides.
         // So postpone calling _updateState() a tiny bit.
         Meta.later_add(Meta.LaterType.BEFORE_REDRAW, Lang.bind(this, function() { this._updateState(); return false; }));
+
+        this.emit('summary-item-added', summaryItem);
+    },
+
+    getSummaryItems: function() {
+        return this._summaryItems;
     },
 
     _onSourceDestroy: function(source) {
@@ -1713,13 +1714,6 @@ const MessageTray = new Lang.Class({
 
     _onScreenLockStatusChanged: function(screenShield, locked) {
         this._isScreenLocked = locked;
-
-        this._summaryItems.forEach(function(item) {
-            if (locked)
-                item.actor.visible = !item.source.privacySensitive;
-            else
-                item.actor.visible = true;
-        });
         this._updateState();
     },
 
@@ -2050,7 +2044,7 @@ const MessageTray = new Lang.Class({
         // Notifications
         let notificationQueue = this._notificationQueue.filter(Lang.bind(this, function(notification) {
             if (this._isScreenLocked)
-                return !notification.privacySensitive;
+                return notification.showWhenLocked;
             else
                 return true;
         }));
@@ -2065,7 +2059,7 @@ const MessageTray = new Lang.Class({
                                   !this._pointerInTray &&
                                   !this._locked &&
                                   !(this._pointerInKeyboard && notificationExpanded);
-        let notificationLockedOut = this._isScreenLocked && (this._notification && this._notification.privacySensitive);
+        let notificationLockedOut = this._isScreenLocked && (this._notification && !this._notification.showWhenLocked);
         let notificationMustClose = this._notificationRemoved || notificationLockedOut || notificationExpired;
         let canShowNotification = notificationsPending && this._summaryState == State.HIDDEN;
 
@@ -2094,7 +2088,7 @@ const MessageTray = new Lang.Class({
 
         let summaryOptionalInOverview = this._overviewVisible && !this._locked && !summaryHovered;
         let mustHideSummary = (notificationsPending && (notificationUrgent || summaryOptionalInOverview))
-                              || notificationsVisible;
+                              || notificationsVisible || this._isScreenLocked;
 
         if (this._summaryState == State.HIDDEN && !mustHideSummary) {
             if (summarySummoned) {
@@ -2130,14 +2124,12 @@ const MessageTray = new Lang.Class({
                                           this._summaryBoxPointer.bin.child != this._clickedSummaryItem.rightClickMenu);
         let wrongSummaryBoxPointer = (haveClickedSummaryItem &&
                                       (wrongSummaryNotificationStack || wrongSummaryRightClickMenu));
-        let summaryBoxPointerLockedOut = (haveClickedSummaryItem &&
-                                          (this._isScreenLocked && this._clickedSummaryItem.source.privacySensitive));
 
         if (this._summaryBoxPointerState == State.HIDDEN) {
             if (haveClickedSummaryItem && !summarySourceIsMainNotificationSource && canShowSummaryBoxPointer && !requestedNotificationStackIsEmpty)
                 this._showSummaryBoxPointer();
         } else if (this._summaryBoxPointerState == State.SHOWN) {
-            if (!haveClickedSummaryItem || !canShowSummaryBoxPointer || wrongSummaryBoxPointer || mustHideSummary || summaryBoxPointerLockedOut) {
+            if (!haveClickedSummaryItem || !canShowSummaryBoxPointer || wrongSummaryBoxPointer || mustHideSummary) {
                 this._hideSummaryBoxPointer();
                 if (wrongSummaryBoxPointer)
                     this._showSummaryBoxPointer();
@@ -2564,6 +2556,7 @@ const MessageTray = new Lang.Class({
             this._updateState();
     }
 });
+Signals.addSignalMethods(MessageTray.prototype);
 
 const SystemNotificationSource = new Lang.Class({
     Name: 'SystemNotificationSource',
