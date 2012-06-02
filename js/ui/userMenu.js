@@ -529,6 +529,12 @@ const UserMenuButton = new Lang.Class({
         this._upClient.connect('notify::can-suspend', Lang.bind(this, this._updateSuspendOrPowerOff));
     },
 
+    setLockedState: function(locked) {
+        this.actor.reactive = !locked;
+        if (locked)
+            this.menu.close();
+    },
+
     _onDestroy: function() {
         this._user.disconnect(this._userLoadedId);
         this._user.disconnect(this._userChangedId);
