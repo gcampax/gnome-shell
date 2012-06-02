@@ -703,12 +703,12 @@ const UserMenuButton = new Lang.Class({
 
     _onLockScreenActivate: function() {
         Main.overview.hide();
-        Main.screenShield.lock();
+        Main.screenShield.lock(true);
     },
 
     _onLoginScreenActivate: function() {
         Main.overview.hide();
-        Main.screenShield.lock();
+        Main.screenShield.lock(true);
         this._userManager.goto_login_session();
     },
 
@@ -724,7 +724,7 @@ const UserMenuButton = new Lang.Class({
             this._suspendOrPowerOffItem.state == PopupMenu.PopupAlternatingMenuItemState.DEFAULT) {
             this._session.ShutdownRemote();
         } else {
-            Main.screenShield.lock();
+            Main.screenShield.lock(true);
             this._upClient.suspend_sync(null);
         }
     }
