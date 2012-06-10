@@ -580,6 +580,8 @@ const NMDevice = new Lang.Class({
         let item = new PopupMenu.PopupMenuItem(obj.name);
 
         item.connect('activate', Lang.bind(this, function() {
+            if (this._activeConnection)
+                this.deactivate();
             this._client.activate_connection(connection, this.device, null, null);
         }));
         return item;
