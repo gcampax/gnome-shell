@@ -1013,7 +1013,8 @@ const NMDeviceWireless = new Lang.Class({
                 this._activeNetwork = this._networks[res.network];
         }
 
-        // we don't refresh the view here, setActiveConnection will
+        this._clearSection();
+        this._queueCreateSection();
     },
 
     _getApSecurityType: function(accessPoint) {
@@ -1375,7 +1376,7 @@ const NMDeviceWireless = new Lang.Class({
         else
             title = _("Connected (private)");
 
-        if (this._activeNetwork)
+        if (this.device.active_access_point)
             this._activeConnectionItem = new NMNetworkMenuItem(this.device.active_access_point, undefined,
                                                                { reactive: false });
         else
@@ -1455,7 +1456,7 @@ const NMDeviceWireless = new Lang.Class({
         if (!this._shouldShowConnectionList())
             return;
 
-        if (this._activeNetwork) {
+        if (this._activeConnection) {
             this._createActiveConnectionItem();
             this.section.addMenuItem(this._activeConnectionItem);
         }
@@ -2146,11 +2147,14 @@ const NMApplet = new Lang.Class({
                 if (dev) {
                     let ap = dev.device.active_access_point;
                     let mode = dev.device.mode;
+
                     if (!ap) {
-                        if (mode != NM80211Mode.ADHOC) {
-                            log('An active wireless connection, in infrastructure mode, involves no access point?');
-                            break;
+                        if (this._accessPointUpdateId) {
+                            this._activeAccessPoint.disconnect(this._accessPointUpdateId);
+                            this._accessPointUpdateId = 0;
+                            this._activeAccessPoint = null;
                         }
+
                         this.setIcon('network-wireless-connected-symbolic');
                     } else {
                         if (this._activeAccessPoint != ap) {
