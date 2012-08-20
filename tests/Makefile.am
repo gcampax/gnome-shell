@@ -17,6 +17,7 @@ TEST_JS =					\
 	interactive/inline-style.js		\
 	interactive/scrolling.js		\
 	interactive/scroll-view-sizing.js	\
+	interactive/shell-mask.js		\
 	interactive/table.js			\
 	interactive/test-title.js		\
 	interactive/transitions.js		\

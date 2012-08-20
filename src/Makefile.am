@@ -12,7 +12,7 @@ SUBDIRS = gvc
 
 -include $(INTROSPECTION_MAKEFILE)
 INTROSPECTION_GIRS =
-INTROSPECTION_SCANNER_ARGS = --warn-all --warn-error --add-include-path=$(srcdir)
+INTROSPECTION_SCANNER_ARGS = --warn-all --add-include-path=$(srcdir)
 INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir) --includedir=$(MUTTER_TYPELIB_DIR)
 
 typelibdir = $(pkglibdir)
@@ -115,6 +115,7 @@ shell_public_headers_h =		\
 	shell-global.h			\
 	shell-invert-lightness-effect.h	\
 	shell-keybinding-modes.h	\
+	shell-mask-effect.h		\
 	shell-mount-operation.h		\
 	shell-network-agent.h		\
 	shell-perf-log.h		\
@@ -158,6 +159,7 @@ libgnome_shell_la_SOURCES =		\
 	shell-invert-lightness-effect.c	\
 	shell-keyring-prompt.h		\
 	shell-keyring-prompt.c		\
+	shell-mask-effect.c		\
 	shell-mount-operation.c		\
 	shell-network-agent.c		\
 	shell-perf-log.c		\
@@ -287,7 +289,7 @@ libgnome_shell_la_LIBADD =		\
 libgnome_shell_la_CPPFLAGS = $(gnome_shell_cflags)
 
 Shell-0.1.gir: libgnome-shell.la St-1.0.gir
-Shell_0_1_gir_INCLUDES = Clutter-1.0 ClutterX11-1.0 Meta-3.0 TelepathyGLib-0.12 TelepathyLogger-0.2 Soup-2.4 GMenu-3.0 NetworkManager-1.0 NMClient-1.0
+Shell_0_1_gir_INCLUDES = Clutter-1.0 ClutterX11-1.0 Meta-3.0 TelepathyGLib-0.12 TelepathyLogger-0.2 Soup-2.4 GMenu-3.0 NetworkManager-1.0 NMClient-1.0 cairo-1.0
 Shell_0_1_gir_CFLAGS = $(libgnome_shell_la_CPPFLAGS) -I $(srcdir)
 Shell_0_1_gir_LIBS = libgnome-shell.la
 Shell_0_1_gir_FILES = $(libgnome_shell_la_gir_sources)
