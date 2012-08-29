@@ -462,11 +462,6 @@ const NMDevice = new Lang.Class({
         return this.device.connection_valid(connection);
     },
 
-    setEnabled: function(enabled) {
-        // do nothing by default, we want to keep the conneciton list visible
-        // in the majority of cases (wired, wwan)
-    },
-
     getStatusLabel: function() {
         switch(this.device.state) {
         case NetworkManager.DeviceState.DISCONNECTED:
@@ -532,7 +527,6 @@ const NMDevice = new Lang.Class({
     _clearSection: function() {
         // Clear everything
         this.section.removeAll();
-        this._autoConnectionItem = null;
         this._activeConnectionItem = null;
         this._overflowItem = null;
         for (let i = 0; i < this._connections.length; i++) {
@@ -541,7 +535,7 @@ const NMDevice = new Lang.Class({
     },
 
     _shouldShowConnectionList: function() {
-        return (this.device.state >= NetworkManager.DeviceState.DISCONNECTED);
+        return (this._connections.length > 1 && this.device.state >= NetworkManager.DeviceState.DISCONNECTED);
     },
 
     _createSection: function() {
@@ -571,14 +565,6 @@ const NMDevice = new Lang.Class({
                 } else
                     this.section.addMenuItem(obj.item);
             }
-        } else if (this._autoConnectionName) {
-            this._autoConnectionItem = new PopupMenu.PopupMenuItem(this._autoConnectionName);
-            this._autoConnectionItem.connect('activate', Lang.bind(this, function() {
-                let connection = this._createAutomaticConnection();
-                if (connection)
-                    this._client.add_and_activate_connection(connection, this.device, null, null);
-            }));
-            this.section.addMenuItem(this._autoConnectionItem);
         }
     },
 
@@ -763,23 +749,6 @@ const NMDeviceModem = new Lang.Class({
         this.parent(client, device, connections);
     },
 
-    setEnabled: function(enabled) {
-        this._enabled = enabled;
-        if (this.category == NMConnectionCategory.WWAN) {
-            if (enabled) {
-                // prevent "network unavailable" statuses
-                this.statusItem.setStatus(null);
-            } else
-                this.statusItem.setStatus(this.getStatusLabel());
-        }
-
-        this.parent(enabled);
-    },
-
-    get connected() {
-        return this._enabled && this.device.state == NetworkManager.DeviceState.ACTIVATED;
-    },
-
     destroy: function() {
         if (this._operatorNameId) {
             this.mobileDevice.disconnect(this._operatorNameId);
@@ -798,9 +767,6 @@ const NMDeviceModem = new Lang.Class({
     },
 
     _createSection: function() {
-        if (!this._shouldShowConnectionList())
-            return;
-
         if (this.mobileDevice) {
             // If operator_name is null, just pass the empty string, as the item is hidden anyway
             this._operatorItem = new PopupMenu.PopupImageMenuItem(this.mobileDevice.operator_name || '',
@@ -1456,7 +1422,7 @@ const NMDeviceWireless = new Lang.Class({
     },
 
     _createSection: function() {
-        if (!this._shouldShowConnectionList())
+        if (this.device.state <= NetworkManager.DeviceState.DISCONNECTED)
             return;
 
         if (this._activeConnection) {
@@ -1719,7 +1685,7 @@ const NMApplet = new Lang.Class({
         this._devices.wwan = {
             section: new PopupMenu.PopupMenuSection(),
             devices: [ ],
-            item: this._makeToggleItem('wwan', _("Mobile broadband"))
+            item: new NMWiredSectionTitleMenuItem(_("Mobile broadband"))
         };
         this._devices.wwan.section.addMenuItem(this._devices.wwan.item);
         this._devices.wwan.section.actor.hide();
