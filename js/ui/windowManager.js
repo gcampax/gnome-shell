@@ -131,15 +131,6 @@ const WindowManager = new Lang.Class({
                                       new Gio.Settings({ schema: SHELL_KEYBINDINGS_SCHEMA }),
                                       Meta.KeyBindingFlags.NONE,
                                       Lang.bind(this, this._openAppMenu));
-
-        Main.overview.connect('showing', Lang.bind(this, function() {
-            for (let i = 0; i < this._dimmedWindows.length; i++)
-                this._undimWindow(this._dimmedWindows[i]);
-        }));
-        Main.overview.connect('hiding', Lang.bind(this, function() {
-            for (let i = 0; i < this._dimmedWindows.length; i++)
-                this._dimWindow(this._dimmedWindows[i]);
-        }));
     },
 
     blockAnimations: function() {
@@ -253,15 +244,13 @@ const WindowManager = new Lang.Class({
         if (shouldDim && !window._dimmed) {
             window._dimmed = true;
             this._dimmedWindows.push(window);
-            if (!Main.overview.visible)
-                this._dimWindow(window);
+            this._dimWindow(window);
         } else if (!shouldDim && window._dimmed) {
             window._dimmed = false;
             this._dimmedWindows = this._dimmedWindows.filter(function(win) {
                                                                  return win != window;
                                                              });
-            if (!Main.overview.visible)
-                this._undimWindow(window);
+            this._undimWindow(window);
         }
     },
 
