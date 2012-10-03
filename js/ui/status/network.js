@@ -449,7 +449,6 @@ const NMDevice = new Lang.Class({
 
         this._activeConnection = activeConnection;
 
-        this._clearSection();
         this._queueCreateSection();
     },
 
@@ -617,7 +616,6 @@ const NMDevice = new Lang.Class({
 
         this._updateStatusItem();
 
-        this._clearSection();
         this._queueCreateSection();
         this.emit('state-changed');
     },
@@ -866,7 +864,6 @@ const NMDeviceBluetooth = new Lang.Class({
     _updateAutoConnectionName: function() {
         this._autoConnectionName = this._makeConnectionName(this.device);
 
-        this._clearSection();
         this._queueCreateSection();
         this._updateStatusItem();
     },
@@ -1133,10 +1130,8 @@ const NMDeviceWireless = new Lang.Class({
         this._networks.splice(res.network, 1);
         let newPos = Util.insertSorted(this._networks, network, Lang.bind(this, this._networkSortFunction));
 
-        if (newPos != res.network) {
-            this._clearSection();
+        if (newPos != res.network)
             this._queueCreateSection();
-        }
     },
 
     _accessPointAdded: function(device, accessPoint) {
@@ -1189,10 +1184,8 @@ const NMDeviceWireless = new Lang.Class({
         let newPos = Util.insertSorted(this._networks, apObj, this._networkSortFunction);
 
         // Queue an update of the UI if we changed the order
-        if (newPos != pos) {
-            this._clearSection();
+        if (newPos != pos)
             this._queueCreateSection();
-        }
     },
 
     _accessPointRemoved: function(device, accessPoint) {
@@ -1252,12 +1245,10 @@ const NMDeviceWireless = new Lang.Class({
             if (res.network < this._networks.length-1)
                 okNext = this._networkSortFunction(this._networks[res.network + 1], apObj) <= 0;
 
-            if (!okPrev || !okNext) {
-                this._clearSection();
+            if (!okPrev || !okNext)
                 this._queueCreateSection();
-            } else if (apObj.item) {
+            else if (apObj.item)
                 apObj.item.updateBestAP(apObj.accessPoints[0]);
-            }
         }
     },
 
@@ -1333,7 +1324,6 @@ const NMDeviceWireless = new Lang.Class({
 
         if (forceupdate) {
             this._networks.sort(this._networkSortFunction);
-            this._clearSection();
             this._queueCreateSection();
         }
     },
@@ -1366,7 +1356,6 @@ const NMDeviceWireless = new Lang.Class({
 
         if (forceupdate) {
             this._networks.sort(this._networkSortFunction);
-            this._clearSection();
             this._queueCreateSection();
         }
     },
