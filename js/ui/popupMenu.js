@@ -58,9 +58,7 @@ const PopupBaseMenuItem = new Lang.Class({
         this._spacing = 0;
         this.active = false;
         this._activatable = params.reactive && params.activate;
-        this.sensitive = this._activatable && params.sensitive;
-
-        this.setSensitive(this.sensitive);
+        this.setSensitive(params.sensitive);
 
         if (!this._activatable)
             this.actor.add_style_class_name('popup-inactive-menu-item');
@@ -1851,8 +1849,10 @@ const RemoteMenu = new Lang.Class({
 
         let action_id = model.get_item_attribute_value(index, Gio.MENU_ATTRIBUTE_ACTION, null).deep_unpack();
         if (!this.actionGroup.has_action(action_id)) {
-            // the action may not be there yet, wait for action-added
-            return [null, false, 'action-added'];
+            // the action may not be there yet, wait for action-added, and build
+            // a disabled item for now
+            let item = new PopupMenuItem(label, { sensitive: false });
+            return [item, false, 'action-added'];
         }
 
         if (!this._actions[action_id])

@@ -76,6 +76,9 @@ function main() {
     menu.append_section('Empty section', new Gio.Menu());
     menu.append_submenu('Empty submenu', new Gio.Menu());
 
+    // items without a valid action should insensitive
+    menu.append('No action', 'app.invalid');
+
     let submenu = new Gio.Menu();
     submenu.append('Open c:\\', 'app.parameter-string::c:\\');
     submenu.append('Open /home', 'app.parameter-string::/home');
