@@ -1128,7 +1128,7 @@ const Panel = new Lang.Class({
     },
 
     _updatePanel: function() {
-        let panel = Main.sessionMode.panel;
+        let panel = Main.sessionMode.getPanel();
         this._hideIndicators();
         this._updateBox(panel.left, this._leftBox);
         this._updateBox(panel.center, this._centerBox);

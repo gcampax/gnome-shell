@@ -93,12 +93,7 @@ const _modes = {
         unlockDialog: imports.ui.unlockDialog.UnlockDialog,
         components: ['networkAgent', 'polkitAgent', 'telepathyClient',
                      'keyring', 'recorder', 'autorunManager', 'automountManager'],
-        panel: {
-            left: ['activities', 'appMenu'],
-            center: ['dateMenu'],
-            right: ['a11y', 'keyboard', 'volume', 'bluetooth',
-                    'network', 'battery', 'userMenu']
-        }
+        panel: null, // looked up in GSettings
     }
 };
 
@@ -118,6 +113,10 @@ const SessionMode = new Lang.Class({
                                                          : 'user';
         this._modeStack = [mode];
         this._sync();
+
+        global.settings.connect('changed::panel-contents', Lang.bind(this, function() {
+            this.emit('updated');
+        }));
     },
 
     pushMode: function(mode) {
@@ -155,6 +154,13 @@ const SessionMode = new Lang.Class({
         }
 
         this.emit('updated');
-    }
+    },
+
+    getPanel: function() {
+        if (this.panel)
+            return this.panel;
+        else
+            return global.settings.get_value('panel-contents').deep_unpack();
+    },
 });
 Signals.addSignalMethods(SessionMode.prototype);

@@ -65,6 +65,22 @@ value here is from the GsmPresenceStatus enumeration.</_summary>
         menuitem in single-user, single-session situations.
       </_description>
     </key>
+    <key name="panel-contents" type="a{sas}">
+      <default>
+        {
+        'left': ['activities', 'appMenu'],
+        'center': ['dateMenu'],
+        'right': ['a11y', 'keyboard', 'volume', 'bluetooth',
+                  'network', 'battery', 'userMenu']
+        }
+      </default>
+      <_summary>Top bar contents</_summary>
+      <_description>
+          The contents of the topbar, as a dictionary of 'left', 'center', 'right', each holding
+          an array of strings which refer to the various panel elements. See js/ui/panel.js for
+          the available elements.
+      </_description>
+    </key>
     <child name="calendar" schema="org.gnome.shell.calendar"/>
     <child name="recorder" schema="org.gnome.shell.recorder"/>
     <child name="keybindings" schema="org.gnome.shell.keybindings"/>
