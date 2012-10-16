@@ -136,7 +136,8 @@ const NotificationsBox = new Lang.Class({
     },
 
     _sourceIsResident: function(source) {
-        return source.hasResidentNotification() && !source.isChat;
+        return (source.hasResidentNotification() && !source.isChat) ||
+            source.policy.residentInLockScreen;
     },
 
     _makeNotificationCountText: function(count, isChat) {
@@ -169,14 +170,14 @@ const NotificationsBox = new Lang.Class({
     },
 
     _summaryItemAdded: function(tray, item, dontUpdateVisibility) {
-        // Ignore transient sources, or sources explicitly marked not to show
-        // in the lock screen
-        if (item.source.isTransient || !item.source.showInLockScreen)
+        // Ignore transient sources
+        if (item.source.isTransient)
             return;
 
         let obj = {
             item: item,
             source: item.source,
+            visible: item.source.policy.showInLockScreen,
             resident: this._sourceIsResident(item.source),
             contentUpdatedId: 0,
             sourceDestroyId: 0,
@@ -184,19 +185,22 @@ const NotificationsBox = new Lang.Class({
             countLabel: null,
         };
 
-        if (obj.resident) {
-            this._residentNotificationBox.add(item.notificationStackWidget);
-            item.closeButton.hide();
-            item.prepareNotificationStackForShowing();
-        } else {
-            [obj.sourceBox, obj.countLabel] = this._makeNotificationSource(item.source);
-            this._persistentNotificationBox.add(obj.sourceBox, { x_fill: false, x_align: St.Align.START });
+        if (obj.visible) {
+            if (obj.resident) {
+                this._residentNotificationBox.add(item.notificationStackWidget);
+                item.closeButton.hide();
+                item.prepareNotificationStackForShowing();
+            } else {
+                [obj.sourceBox, obj.countLabel] = this._makeNotificationSource(item.source);
+                this._persistentNotificationBox.add(obj.sourceBox, { x_fill: false, x_align: St.Align.START });
+            }
         }
 
         obj.contentUpdatedId = item.connect('content-updated', Lang.bind(this, this._onItemContentUpdated));
         obj.sourceCountChangedId = item.source.connect('count-updated', Lang.bind(this, this._onSourceChanged));
         obj.sourceTitleChangedId = item.source.connect('title-changed', Lang.bind(this, this._onSourceChanged));
         obj.sourceDestroyId = item.source.connect('destroy', Lang.bind(this, this._onSourceDestroy));
+        obj.policyChangedId = item.source.policy.connect('policy-changed', Lang.bind(this, this._onPolicyChanged));
         this._items.push(obj);
 
         if (!dontUpdateVisibility)
@@ -206,6 +210,15 @@ const NotificationsBox = new Lang.Class({
     _findSource: function(source) {
         for (let i = 0; i < this._items.length; i++) {
             if (this._items[i].source == source)
+                return i;
+        }
+
+        return -1;
+    },
+
+    _findPolicy: function(policy) {
+        for (let i = 0; i < this._items.length; i++) {
+            if (this._items[i].source.policy == policy)
                 return i;
         }
 
@@ -222,35 +235,64 @@ const NotificationsBox = new Lang.Class({
         this._updateItem(obj);
     },
 
+    _onPolicyChanged: function(policy) {
+        let obj = this._items[this._findPolicy(policy)];
+        this._updateItem(obj);
+    },
+
     _updateItem: function(obj) {
+        let itemShouldBeVisible = obj.source.policy.showInLockScreen;
         let itemShouldBeResident = this._sourceIsResident(obj.source);
 
-        if (itemShouldBeResident && obj.resident) {
-            // Nothing to do here, the actor is already updated
-            return;
-        }
+        if (!itemShouldBeVisible) {
+            if (obj.visible) {
+                if (obj.resident) {
+                    obj.item.doneShowingNotificationStack();
+                    this._residentNotificationBox.remove_actor(obj.item.notificationStackWidget);
+                } else {
+                    obj.sourceBox.destroy();
+                    obj.sourceBox = obj.countLabel = null;
+                }
 
-        if (obj.resident && !itemShouldBeResident) {
-            // make into a regular item
-            obj.item.doneShowingNotificationStack();
-            this._residentNotificationBox.remove_actor(obj.item.notificationStackWidget);
+                obj.visible = false;
+                obj.resident = itemShouldBeResident;
+            }
+        } else if (obj.resident == itemShouldBeResident &&
+                   obj.visible == itemShouldBeVisible) {
+            if (obj.resident) {
+                // do nothing, the actor is updated by SummaryItem
+                // transparently
+            } else {
+                // just update the counter
+                let count = obj.source.unseenCount;
+                obj.countLabel.text = this._makeNotificationCountText(count, obj.source.isChat);
+                obj.sourceBox.visible = count != 0;
+            }
+        } else if (!itemShouldBeResident) {
+            if (obj.visible && obj.resident) {
+                // make into a regular item
+                obj.item.doneShowingNotificationStack();
+                this._residentNotificationBox.remove_actor(obj.item.notificationStackWidget);
+            }
+
+            obj.resident = false;
+            obj.visible = true;
 
             [obj.sourceBox, obj.countLabel] = this._makeNotificationSource(obj.source);
             this._persistentNotificationBox.add(obj.sourceBox, { x_fill: false, x_align: St.Align.START });
-        } else if (itemShouldBeResident && !obj.resident) {
-            // make into a resident item
-            obj.sourceBox.destroy();
-            obj.sourceBox = obj.countLabel = null;
+        } else if (itemShouldBeResident) {
+            if (obj.visible && !obj.resident) {
+                // make into a resident item
+                obj.sourceBox.destroy();
+                obj.sourceBox = obj.countLabel = null;
+            }
+
             obj.resident = true;
+            obj.visible = true;
 
             this._residentNotificationBox.add(obj.item.notificationStackWidget);
             obj.item.closeButton.hide();
             obj.item.prepareNotificationStackForShowing();
-        } else {
-            // just update the counter
-            let count = obj.source.unseenCount;
-            obj.countLabel.text = this._makeNotificationCountText(count, obj.source.isChat);
-            obj.sourceBox.visible = count != 0;
         }
 
         this._updateVisibility();
@@ -266,16 +308,19 @@ const NotificationsBox = new Lang.Class({
     },
 
     _removeItem: function(obj) {
-        if (obj.resident) {
-            obj.item.doneShowingNotificationStack();
-            this._residentNotificationBox.remove_actor(obj.item.notificationStackWidget);
-        } else {
-            obj.sourceBox.destroy();
+        if (obj.visible) {
+            if (obj.resident) {
+                obj.item.doneShowingNotificationStack();
+                this._residentNotificationBox.remove_actor(obj.item.notificationStackWidget);
+            } else {
+                obj.sourceBox.destroy();
+            }
         }
 
         obj.item.disconnect(obj.contentUpdatedId);
         obj.source.disconnect(obj.sourceDestroyId);
         obj.source.disconnect(obj.sourceCountChangedId);
+        obj.source.policy.disconnect(obj.policyChangedId)
     },
 });
 
@@ -757,12 +802,10 @@ const ScreenShield = new Lang.Class({
 
         this._lockScreenContents.add_actor(this._lockScreenContentsBox);
 
-        if (this._settings.get_boolean('show-notifications')) {
-            this._notificationsBox = new NotificationsBox();
-            this._lockScreenContentsBox.add(this._notificationsBox.actor, { x_fill: true,
-                                                                            y_fill: true,
-                                                                            expand: true });
-        }
+        this._notificationsBox = new NotificationsBox();
+        this._lockScreenContentsBox.add(this._notificationsBox.actor, { x_fill: true,
+                                                                        y_fill: true,
+                                                                        expand: true });
 
         this._hasLockScreen = true;
     },
