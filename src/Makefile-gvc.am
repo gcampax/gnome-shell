@@ -13,24 +13,27 @@ libgvc_la_LIBADD =			\
 libgvc_la_LDFLAGS = -avoid-version
 
 libgvc_la_gir_sources = \
-	gvc/gvc-mixer-stream.h		\
-	gvc/gvc-mixer-stream.c		\
-	gvc/gvc-channel-map.h		\
-	gvc/gvc-channel-map.c		\
-	gvc/gvc-mixer-card.c		\
-	gvc/gvc-mixer-card.h		\
-	gvc/gvc-mixer-sink.h		\
-	gvc/gvc-mixer-sink.c		\
-	gvc/gvc-mixer-source.h		\
-	gvc/gvc-mixer-source.c		\
-	gvc/gvc-mixer-sink-input.h	\
-	gvc/gvc-mixer-sink-input.c	\
-	gvc/gvc-mixer-source-output.h	\
-	gvc/gvc-mixer-source-output.c	\
-	gvc/gvc-mixer-event-role.h	\
-	gvc/gvc-mixer-event-role.c	\
-	gvc/gvc-mixer-control.h		\
-	gvc/gvc-mixer-control.c
+	gvc/gvc-mixer-card.h			\
+	gvc/gvc-mixer-card.c			\
+	gvc/gvc-mixer-stream.h			\
+	gvc/gvc-mixer-stream.c			\
+	gvc/gvc-channel-map.h			\
+	gvc/gvc-channel-map.c			\
+	gvc/gvc-mixer-ui-device.h		\
+	gvc/gvc-mixer-ui-device.c		\
+	gvc/gvc-mixer-sink.h			\
+	gvc/gvc-mixer-sink.c			\
+	gvc/gvc-mixer-source.h			\
+	gvc/gvc-mixer-source.c			\
+	gvc/gvc-mixer-sink-input.h		\
+	gvc/gvc-mixer-sink-input.c		\
+	gvc/gvc-mixer-source-output.h		\
+	gvc/gvc-mixer-source-output.c		\
+	gvc/gvc-mixer-event-role.h		\
+	gvc/gvc-mixer-event-role.c		\
+	gvc/gvc-mixer-control.h			\
+	gvc/gvc-mixer-control.c			\
+	gvc/gvc-pulseaudio-fake.h
 
 libgvc_la_private_sources = 		\
 	gvc/gvc-mixer-stream-private.h	\
