@@ -555,11 +555,16 @@ const Calendar = new Lang.Class({
 
         let iter = new Date(beginDate);
         let row = 2;
-        while (true) {
+        // We want to show always 6 weeks (to keep the calendar menu at the same
+        // height if there are no events), so we pad it with hidden days from the
+        // following month.
+        let nRows = 8;
+        let finished = false;
+        while (row < 8) {
             let button = new St.Button({ label: iter.getDate().toString() });
             let rtl = button.get_text_direction() == Clutter.TextDirection.RTL;
 
-            if (!this._eventSource)
+            if (finished || !this._eventSource)
                 button.reactive = false;
 
             let iterStr = iter.toUTCString();
@@ -569,7 +574,13 @@ const Calendar = new Lang.Class({
             }));
 
             let hasEvents = this._eventSource && this._eventSource.hasEvents(iter);
-            let styleClass = 'calendar-day-base calendar-day';
+            let styleClass;
+
+            if (finished)
+                styleClass = 'calendar-day-base calendar-day-hidden';
+            else
+                styleClass = 'calendar-day-base calendar-day';
+
             if (_isWorkDay(iter))
                 styleClass += ' calendar-work-day'
             else
@@ -595,6 +606,9 @@ const Calendar = new Lang.Class({
             if (hasEvents)
                 styleClass += ' calendar-day-with-events'
 
+            if (finished)
+                styleClass += ' calendar-day-hidden';
+
             button.style_class = styleClass;
 
             let offsetCols = this._useWeekdate ? 1 : 0;
@@ -612,7 +626,7 @@ const Calendar = new Lang.Class({
             if (iter.getDay() == this._weekStart) {
                 // We stop on the first "first day of the week" after the month we are displaying
                 if (iter.getMonth() > this._selectedDate.getMonth() || iter.getYear() > this._selectedDate.getYear())
-                    break;
+                    finished = true;
                 row++;
             }
         }
