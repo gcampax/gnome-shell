@@ -174,6 +174,11 @@ const EmptyEventSource = new Lang.Class({
     Name: 'EmptyEventSource',
 
     _init: function() {
+        this.isLoading = false;
+        this.isDummy = true;
+    },
+
+    destroy: function() {
     },
 
     requestRange: function(begin, end) {
@@ -238,6 +243,8 @@ const DBusEventSource = new Lang.Class({
 
     _init: function() {
         this._resetCache();
+        this.isLoading = false;
+        this.isDummy = false;
 
         this._dbusProxy = new CalendarServer();
         this._dbusProxy.connectSignal('Changed', Lang.bind(this, this._onChanged));
@@ -248,6 +255,10 @@ const DBusEventSource = new Lang.Class({
             else
                 this._onNameVanished();
         }));
+    },
+
+    destroy: function() {
+        this._dbusProxy.run_dispose();
     },
 
     _resetCache: function() {
@@ -289,6 +300,7 @@ const DBusEventSource = new Lang.Class({
         }
 
         this._events = newEvents;
+        this.isLoading = false;
         this.emit('changed');
     },
 
@@ -307,6 +319,7 @@ const DBusEventSource = new Lang.Class({
 
     requestRange: function(begin, end, forceReload) {
         if (forceReload || !(_datesEqual(begin, this._lastRequestBegin) && _datesEqual(end, this._lastRequestEnd))) {
+            this.isLoading = true;
             this._lastRequestBegin = begin;
             this._lastRequestEnd = end;
             this._curRequestBegin = begin;
@@ -383,19 +396,11 @@ const Calendar = new Lang.Class({
     // @eventSource: is an object implementing the EventSource API, e.g. the
     // requestRange(), getEvents(), hasEvents() methods and the ::changed signal.
     setEventSource: function(eventSource) {
-        if (this._eventSource) {
-            this._eventSource.disconnect(this._eventSourceChangedId);
-            this._eventSource = null;
-        }
-
         this._eventSource = eventSource;
-
-        if (this._eventSource) {
-            this._eventSourceChangedId = this._eventSource.connect('changed', Lang.bind(this, function() {
-                this._update(false);
-            }));
-            this._update(true);
-        }
+        this._eventSource.connect('changed', Lang.bind(this, function() {
+            this._update(false);
+        }));
+        this._update(true);
     },
 
     // Sets the calendar to show a specific date
@@ -564,7 +569,7 @@ const Calendar = new Lang.Class({
             let button = new St.Button({ label: iter.getDate().toString() });
             let rtl = button.get_text_direction() == Clutter.TextDirection.RTL;
 
-            if (finished || !this._eventSource)
+            if (finished || this._eventSource.isDummy)
                 button.reactive = false;
 
             let iterStr = iter.toUTCString();
@@ -573,7 +578,7 @@ const Calendar = new Lang.Class({
                 this.setDate(newlySelectedDate, false);
             }));
 
-            let hasEvents = this._eventSource && this._eventSource.hasEvents(iter);
+            let hasEvents = this._eventSource.hasEvents(iter);
             let styleClass;
 
             if (finished)
@@ -632,8 +637,7 @@ const Calendar = new Lang.Class({
         }
         // Signal to the event source that we are interested in events
         // only from this date range
-        if (this._eventSource)
-            this._eventSource.requestRange(beginDate, iter, forceReload);
+        this._eventSource.requestRange(beginDate, iter, forceReload);
     }
 });
 
@@ -651,16 +655,8 @@ const EventsList = new Lang.Class({
     },
 
     setEventSource: function(eventSource) {
-        if (this._eventSource) {
-            this._eventSource.disconnect(this._eventSourceChangedId);
-            this._eventSource = null;
-        }
-
         this._eventSource = eventSource;
-
-        if (this._eventSource) {
-            this._eventSourceChangedId = this._eventSource.connect('changed', Lang.bind(this, this._update));
-        }
+        this._eventSource.connect('changed', Lang.bind(this, this._update));
     },
 
     _addEvent: function(dayNameBox, timeBox, eventTitleBox, includeDayName, day, time, desc) {
@@ -677,9 +673,6 @@ const EventsList = new Lang.Class({
     },
 
     _addPeriod: function(header, begin, end, includeDayName, showNothingScheduled) {
-        if (!this._eventSource)
-            return;
-
         let events = this._eventSource.getEvents(begin, end);
 
         let clockFormat = this._desktopSettings.get_string(CLOCK_FORMAT_KEY);;
@@ -776,6 +769,9 @@ const EventsList = new Lang.Class({
     },
 
     _update: function() {
+        if (this._eventSource.isLoading)
+            return;
+
         let today = new Date();
         if (_sameDay (this._date, today)) {
             this._showToday();

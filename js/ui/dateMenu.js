@@ -173,8 +173,13 @@ const DateMenuButton = new Lang.Class({
     },
 
     _setEventSource: function(eventSource) {
+        if (this._eventSource)
+            this._eventSource.destroy();
+
         this._calendar.setEventSource(eventSource);
         this._eventList.setEventSource(eventSource);
+
+        this._eventSource = eventSource;
     },
 
     _sessionUpdated: function() {
@@ -183,7 +188,7 @@ const DateMenuButton = new Lang.Class({
         if (showEvents) {
             eventSource = new Calendar.DBusEventSource();
         } else {
-            eventSource = null;
+            eventSource = new Calendar.EmptyEventSource();
         }
         this._setEventSource(eventSource);
         this._setEventsVisibility(showEvents);
