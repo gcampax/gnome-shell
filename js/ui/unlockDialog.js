@@ -168,6 +168,7 @@ const UnlockDialog = new Lang.Class({
         this._promptLoginHint.hide();
         this.contentLayout.add_actor(this._promptLoginHint);
 
+        this.allowCancel = false;
         let cancelButton = { label: _("Cancel"),
                              action: Lang.bind(this, this._escape),
                              key: Clutter.KEY_Escape };
@@ -297,8 +298,10 @@ const UnlockDialog = new Lang.Class({
     },
 
     _escape: function() {
-        this._userVerifier.cancel();
-        this.emit('failed');
+        if (this.allowCancel) {
+            this._userVerifier.cancel();
+            this.emit('failed');
+        }
     },
 
     _otherUserClicked: function(button, event) {
