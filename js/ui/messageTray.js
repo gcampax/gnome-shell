@@ -1061,6 +1061,7 @@ const Source = new Lang.Class({
         this.showInLockScreen = true;
         this.keepTrayOnSummaryClick = false;
 
+        this.destroyed = false;
         this.notifications = [];
     },
 
@@ -1174,6 +1175,7 @@ const Source = new Lang.Class({
     },
 
     destroy: function(reason) {
+        this.destroyed = true;
         this.emit('destroy', reason);
     },
 
@@ -2505,7 +2507,7 @@ const MessageTray = new Lang.Class({
         this._summaryBoxPointerState = State.HIDING;
         this._unlock();
 
-        if (this._summaryBoxPointerItem.source.notifications.length == 0) {
+        if (this._summaryBoxPointerItem.source.destroyed) {
             this._summaryBoxPointer.actor.hide();
             this._hideSummaryBoxPointerCompleted();
         } else {
