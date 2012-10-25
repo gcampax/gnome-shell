@@ -326,7 +326,7 @@ const Notification = new Lang.Class({
         this._titleFitsInBannerMode = true;
         this._titleDirection = Clutter.TextDirection.DEFAULT;
         this._spacing = 0;
-        this._scrollPolicy = Gtk.PolicyType.AUTOMATIC;
+        this._scrollPolicy = St.ScrollPolicy.AUTOMATIC;
         this._imageBin = null;
 
         source.connect('destroy', Lang.bind(this,
@@ -500,7 +500,7 @@ const Notification = new Lang.Class({
     },
 
     enableScrolling: function(enableScrolling) {
-        this._scrollPolicy = enableScrolling ? Gtk.PolicyType.AUTOMATIC : Gtk.PolicyType.NEVER;
+        this._scrollPolicy = enableScrolling ? St.ScrollPolicy.AUTOMATIC : St.ScrollPolicy.NEVER;
         if (this._scrollArea) {
             this._scrollArea.vscrollbar_policy = this._scrollPolicy;
             this._scrollArea.enable_mouse_scrolling = enableScrolling;
@@ -511,7 +511,7 @@ const Notification = new Lang.Class({
         this._table.add_style_class_name('multi-line-notification');
         this._scrollArea = new St.ScrollView({ style_class: 'notification-scrollview',
                                                vscrollbar_policy: this._scrollPolicy,
-                                               hscrollbar_policy: Gtk.PolicyType.NEVER });
+                                               hscrollbar_policy: St.ScrollPolicy.NEVER });
         this._table.add(this._scrollArea, { row: 1,
                                             col: 2 });
         this._updateLastColumnSettings();
@@ -1245,8 +1245,8 @@ const SummaryItem = new Lang.Class({
         this.notificationStackWidget = new St.Widget({ layout_manager: new Clutter.BinLayout() });
 
         this.notificationStackView = new St.ScrollView({ style_class: source.isChat ? '' : 'summary-notification-stack-scrollview',
-                                                         vscrollbar_policy: source.isChat ? Gtk.PolicyType.NEVER : Gtk.PolicyType.AUTOMATIC,
-                                                         hscrollbar_policy: Gtk.PolicyType.NEVER });
+                                                         vscrollbar_policy: source.isChat ? St.ScrollPolicy.NEVER : St.ScrollPolicy.AUTOMATIC,
+                                                         hscrollbar_policy: St.ScrollPolicy.NEVER });
         this.notificationStackView.add_style_class_name('vfade');
         this.notificationStack = new St.BoxLayout({ style_class: 'summary-notification-stack',
                                                     vertical: true });

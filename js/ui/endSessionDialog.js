@@ -273,8 +273,8 @@ const EndSessionDialog = new Lang.Class({
                             y_align: St.Align.START });
 
         let scrollView = new St.ScrollView({ style_class: 'end-session-dialog-app-list'});
-        scrollView.set_policy(Gtk.PolicyType.NEVER,
-                              Gtk.PolicyType.AUTOMATIC);
+        scrollView.set_policy(St.ScrollPolicy.NEVER,
+                              St.ScrollPolicy.AUTOMATIC);
         this.contentLayout.add(scrollView,
                                { x_fill: true,
                                  y_fill: true });

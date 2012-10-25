@@ -209,8 +209,8 @@ const UserList = new Lang.Class({
 
     _init: function() {
         this.actor = new St.ScrollView({ style_class: 'login-dialog-user-list-view'});
-        this.actor.set_policy(Gtk.PolicyType.NEVER,
-                              Gtk.PolicyType.AUTOMATIC);
+        this.actor.set_policy(St.ScrollPolicy.NEVER,
+                              St.ScrollPolicy.AUTOMATIC_ALLOCATE);
 
         this._box = new St.BoxLayout({ vertical: true,
                                        style_class: 'login-dialog-user-list',
@@ -564,8 +564,8 @@ const SessionList = new Lang.Class({
                              Lang.bind(this, this._onClicked));
         this._box.add_actor(this._button);
         this._scrollView = new St.ScrollView({ style_class: 'login-dialog-session-list-scroll-view'});
-        this._scrollView.set_policy(Gtk.PolicyType.NEVER,
-                                    Gtk.PolicyType.AUTOMATIC);
+        this._scrollView.set_policy(St.ScrollPolicy.NEVER,
+                                    St.ScrollPolicy.AUTOMATIC);
         this._box.add_actor(this._scrollView);
         this._itemList = new St.BoxLayout({ style_class: 'login-dialog-session-item-list',
                                             vertical: true });

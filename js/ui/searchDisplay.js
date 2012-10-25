@@ -186,7 +186,7 @@ const SearchResults = new Lang.Class({
         let scrollView = new St.ScrollView({ x_fill: true,
                                              y_fill: false,
                                              style_class: 'vfade' });
-        scrollView.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+        scrollView.set_policy(St.ScrollPolicy.NEVER, St.ScrollPolicy.AUTOMATIC);
         scrollView.add_actor(this._content);
 
         this.actor.add(scrollView, { x_fill: true,
