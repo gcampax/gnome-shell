@@ -2338,6 +2338,9 @@ const MessageTray = new Lang.Class({
         this._notification = null;
         if (notification.isTransient)
             notification.destroy(NotificationDestroyedReason.EXPIRED);
+
+        log('_hideNotificationCompleted');
+        log('_notificationState: ' + this._notificationState);
     },
 
     _expandNotification: function(autoExpanding) {
