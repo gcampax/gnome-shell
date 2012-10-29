@@ -176,6 +176,7 @@ const EmptyEventSource = new Lang.Class({
     _init: function() {
         this.isLoading = false;
         this.isDummy = true;
+        this.hasCalendars = false;
     },
 
     destroy: function() {
@@ -202,6 +203,7 @@ const CalendarServerIface = <interface name="org.gnome.Shell.CalendarServer">
     <arg type="b" direction="in" />
     <arg type="a(sssbxxa{sv})" direction="out" />
 </method>
+<property name="HasCalendars" type="b" access="read" />
 <signal name="Changed" />
 </interface>;
 
@@ -212,8 +214,7 @@ function CalendarServer() {
                                    g_interface_name: CalendarServerInfo.name,
                                    g_interface_info: CalendarServerInfo,
                                    g_name: 'org.gnome.Shell.CalendarServer',
-                                   g_object_path: '/org/gnome/Shell/CalendarServer',
-                                   g_flags: Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES });
+                                   g_object_path: '/org/gnome/Shell/CalendarServer' });
 
     self.init(null);
     return self;
@@ -255,10 +256,18 @@ const DBusEventSource = new Lang.Class({
             else
                 this._onNameVanished();
         }));
+
+        this._dbusProxy.connect('g-properties-changed', Lang.bind(this, function() {
+            this.emit('notify::has-calendars');
+        }));
     },
 
     destroy: function() {
         this._dbusProxy.run_dispose();
+    },
+
+    get hasCalendars() {
+        return this._dbusProxy.HasCalendars;
     },
 
     _resetCache: function() {
