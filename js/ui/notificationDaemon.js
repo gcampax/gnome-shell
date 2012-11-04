@@ -333,7 +333,7 @@ const NotificationDaemon = new Lang.Class({
             }
         }
 
-        let source = new Source(title, pid, sender, trayIcon);
+        let source = new Source(title, pid, sender, trayIcon, ndata ? ndata.hints['desktop-entry'] : null);
         source.setTransient(isForTransientNotification);
 
         if (!isForTransientNotification) {
@@ -635,12 +635,22 @@ const Source = new Lang.Class({
     Name: 'NotificationDaemonSource',
     Extends: MessageTray.Source,
 
-    _init: function(title, pid, sender, trayIcon) {
+    _init: function(title, pid, sender, trayIcon, appId) {
+        // Need to set the app before chaining up, so
+        // _createPolicy can find it
+        this.trayIcon = trayIcon;
+        this.pid = pid;
+        this.app = this._getApp(appId);
+
         this.parent(title);
 
         this.initialTitle = title;
 
-        this.pid = pid;
+        if (this.app)
+            this.title = this.app.get_name();
+        else
+            this.useNotificationIcon = true;
+
         if (sender)
             this._nameWatcherId = Gio.DBus.session.watch_name(sender,
                                                               Gio.BusNameWatcherFlags.NONE,
@@ -649,17 +659,27 @@ const Source = new Lang.Class({
         else
             this._nameWatcherId = 0;
 
-        this._setApp();
-        if (this.app)
-            this.title = this.app.get_name();
-        else
-            this.useNotificationIcon = true;
-
-        this.trayIcon = trayIcon;
         if (this.trayIcon) {
-           this._setSummaryIcon(this.trayIcon);
-           this.useNotificationIcon = false;
+            // Try again finding the app, using the WM_CLASS from the tray icon
+            this._setSummaryIcon(this.trayIcon);
+            this.useNotificationIcon = false;
         }
+    },
+
+    _createPolicy: function() {
+        let id = null;
+
+        if (this.app) {
+            // remove '.desktop'
+            id = this.app.get_id().slice(0, -8);
+        } else if (this.trayIcon) {
+            id = this.trayIcon.wm_class;
+        }
+
+        if (id != null)
+            return new NotificationApplicationPolicy(id);
+        else
+            return new NotificationGenericPolicy();
     },
 
     _onNameVanished: function() {
@@ -710,7 +730,7 @@ const Source = new Lang.Class({
         return true;
     },
 
-    _getApp: function() {
+    _getApp: function(appId) {
         let app;
 
         app = Shell.WindowTracker.get_default().get_app_from_pid(this.pid);
@@ -718,7 +738,13 @@ const Source = new Lang.Class({
             return app;
 
         if (this.trayIcon) {
-            app = Shell.AppSystem.get_default().lookup_wmclass(this.trayIcon.wmclass);
+            app = Shell.AppSystem.get_default().lookup_wmclass(this.trayIcon.wm_class);
+            if (app != null)
+                return app;
+        }
+
+        if (appId) {
+            app = Shell.AppSystem.get_default().lookup_app(appId + '.desktop');
             if (app != null)
                 return app;
         }
@@ -726,11 +752,11 @@ const Source = new Lang.Class({
         return null;
     },
 
-    _setApp: function() {
+    _setApp: function(appId) {
         if (this.app)
             return;
 
-        this.app = this._getApp();
+        this.app = this._getApp(appId);
         if (!this.app)
             return;
 
