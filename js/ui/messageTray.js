@@ -1435,7 +1435,7 @@ const MessageTray = new Lang.Class({
 
         this._summaryBoxPointerItem = null;
         this._summaryBoxPointerContentUpdatedId = 0;
-        this._summaryBoxPointerDoneDisplayingId = 0;
+        this._sourceDoneDisplayingId = 0;
         this._clickedSummaryItem = null;
         this._clickedSummaryItemMouseButton = -1;
         this._clickedSummaryItemAllocationChangedId = 0;
@@ -2527,10 +2527,12 @@ const MessageTray = new Lang.Class({
         this._summaryBoxPointer.bin.child = null;
         this._summaryBoxPointerItem.disconnect(this._summaryBoxPointerContentUpdatedId);
         this._summaryBoxPointerContentUpdatedId = 0;
-        this._summaryBoxPointerItem.closeButton.disconnect(this._summaryBoxPointerCloseClickedId);
-        this._summaryBoxPointerCloseClickedId = 0;
+        if (this._summaryBoxPointerClockClickedId) {
+            this._summaryBoxPointerItem.closeButton.disconnect(this._summaryBoxPointerCloseClickedId);
+            this._summaryBoxPointerCloseClickedId = 0;
+        }
         this._summaryBoxPointerItem.source.disconnect(this._sourceDoneDisplayingId);
-        this._summaryBoxPointerDoneDisplayingId = 0;
+        this._sourceDoneDisplayingId = 0;
 
         let sourceNotificationStackDoneShowing = null;
         if (doneShowingNotificationStack) {
