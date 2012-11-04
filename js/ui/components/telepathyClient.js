@@ -13,6 +13,7 @@ const Tp = imports.gi.TelepathyGLib;
 const History = imports.misc.history;
 const Main = imports.ui.main;
 const MessageTray = imports.ui.messageTray;
+const NotificationDaemon = imports.ui.notificationDaemon;
 const Params = imports.misc.params;
 const PopupMenu = imports.ui.popupMenu;
 
@@ -393,6 +394,8 @@ const TelepathyClient = new Lang.Class({
         if (this._subscriptionSource == null) {
             this._subscriptionSource = new MessageTray.Source(_("Subscription request"),
                                                               'gtk-dialog-question');
+            this._accountSource.policy = new NotificationDaemon.NotificationApplicationPolicy('empathy');
+
             Main.messageTray.add(this._subscriptionSource);
             this._subscriptionSource.connect('destroy', Lang.bind(this, function () {
                 this._subscriptionSource = null;
@@ -429,6 +432,8 @@ const TelepathyClient = new Lang.Class({
         if (this._accountSource == null) {
             this._accountSource = new MessageTray.Source(_("Connection error"),
                                                          'gtk-dialog-error');
+            this._accountSource.policy = new NotificationDaemon.NotificationApplicationPolicy('gnome-online-accounts-panel');
+
             Main.messageTray.add(this._accountSource);
             this._accountSource.connect('destroy', Lang.bind(this, function () {
                 this._accountSource = null;
@@ -496,6 +501,10 @@ const ChatSource = new Lang.Class({
         }));
         rightClickMenu.add(item.actor);
         return rightClickMenu;
+    },
+
+    _createPolicy: function() {
+        return new NotificationDaemon.NotificationApplicationPolicy('empathy');
     },
 
     _updateAlias: function() {
@@ -1062,6 +1071,10 @@ const ApproverSource = new Lang.Class({
                                              Lang.bind(this, function(domain, code, msg) {
             this.destroy();
         }));
+    },
+
+    _createPolicy: function() {
+        return new NotificationDaemon.NotificationApplicationPolicy('empathy');
     },
 
     destroy: function() {
