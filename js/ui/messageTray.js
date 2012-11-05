@@ -327,6 +327,10 @@ Signals.addSignalMethods(NotificationPolicy.prototype);
 // the content and the action area of the notification will be cleared.
 // The content area is also always cleared if 'customContent' is false
 // because it might contain the @banner that didn't fit in the banner mode.
+//
+// If @params contains 'soundName' or 'soundFile', the corresponding
+// event sound is played when the notification is shown (if the policy for
+// @source allows playing sounds).
 const Notification = new Lang.Class({
     Name: 'Notification',
 
@@ -421,7 +425,9 @@ const Notification = new Lang.Class({
                                         titleMarkup: false,
                                         bannerMarkup: false,
                                         bodyMarkup: false,
-                                        clear: false });
+                                        clear: false,
+                                        soundName: null,
+                                        soundFile: null });
 
         this._customContent = params.customContent;
 
@@ -519,6 +525,10 @@ const Notification = new Lang.Class({
 
         if (params.body)
             this.addBody(params.body, params.bodyMarkup);
+
+        this._soundName = params.soundName;
+        this._soundFile = params.soundFile;
+
         this.updated();
     },
 
@@ -872,6 +882,33 @@ const Notification = new Lang.Class({
                (!this._titleFitsInBannerMode && !this._table.has_style_class_name('multi-line-notification'));
     },
 
+    notify: function() {
+        if (!this.source.policy.enableSound)
+            return;
+
+        if (this._soundName) {
+            if (this.source.app) {
+                let app = this.source.app;
+
+                global.play_theme_sound_full(0, this._soundName,
+                                             this.title, null,
+                                             app.get_id(), app.get_name());
+            } else {
+                global.play_theme_sound(0, this._soundName, this.title, null);
+            }
+        } else if (this._soundFile) {
+            if (this.source.app) {
+                let app = this.source.app;
+
+                global.play_sound_file_full(0, this._soundFile,
+                                            this.title, null,
+                                            app.get_id(), app.get_name());
+            } else {
+                global.play_sound_file(0, this._soundFile, this.title, null);
+            }
+        }
+    },
+
     updated: function() {
         if (this.expanded)
             this.expand(false);
@@ -1202,8 +1239,10 @@ const Source = new Lang.Class({
         notification.acknowledged = false;
         this.pushNotification(notification);
 
-        if (!this.isMuted && this.policy.showBanners)
+        if (!this.isMuted && this.policy.showBanners) {
+            notification.notify();
             this.emit('notify', notification);
+        }
     },
 
     destroy: function(reason) {

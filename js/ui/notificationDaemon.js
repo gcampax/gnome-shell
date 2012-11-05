@@ -480,7 +480,9 @@ const NotificationDaemon = new Lang.Class({
         if (notification == null) {
             notification = new MessageTray.Notification(source, summary, body,
                                                         { gicon: gicon,
-                                                          bannerMarkup: true });
+                                                          bannerMarkup: true,
+                                                          soundFile: hints['sound-file'],
+                                                          soundName: hints['sound-name'] });
             ndata.notification = notification;
             notification.connect('destroy', Lang.bind(this,
                 function(n, reason) {
@@ -506,7 +508,9 @@ const NotificationDaemon = new Lang.Class({
         } else {
             notification.update(summary, body, { gicon: gicon,
                                                  bannerMarkup: true,
-                                                 clear: true });
+                                                 clear: true,
+                                                 soundFile: hints['sound-file'],
+                                                 soundName: hints['sound-name'] });
         }
 
         // We only display a large image if an icon is also specified.
@@ -579,7 +583,7 @@ const NotificationDaemon = new Lang.Class({
             // 'icon-multi',
             'icon-static',
             'persistence',
-            // 'sound',
+            'sound',
         ];
     },
 
