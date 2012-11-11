@@ -281,7 +281,7 @@ const Indicator = new Lang.Class({
             this.setIcon(icon);
             this._syncVisibility();
         }));
-        this._volumeMenu.connect('headphones-changed', Lang.bind(this, function() {
+        this.volumeMenu.connect('headphones-changed', Lang.bind(this, function() {
             this._syncVisibility();
         }));
 
@@ -299,7 +299,7 @@ const Indicator = new Lang.Class({
     _syncVisibility: function() {
         this.actor.visible = this._hasPulseAudio;
         this.mainIcon.visible = this._hasPulseAudio;
-        this._headphoneIcon.visible = this._hasPulseAudio && this._volumeMenu.hasHeadphones;
+        this._headphoneIcon.visible = this._hasPulseAudio && this.volumeMenu.hasHeadphones;
     },
 
     _onScrollEvent: function(actor, event) {

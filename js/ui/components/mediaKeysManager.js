@@ -511,7 +511,7 @@ const MediaKeysManager = new Lang.Class({
     },
 
     doScreensaver: function() {
-        // FIXME: handled in house, to the screenshield!
+        Main.screenShield.lock(true);
         return true;
     },
 

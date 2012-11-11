@@ -22,7 +22,7 @@ const Recorder = new Lang.Class({
     },
 
     disable: function() {
-        global.display.remove_keybinding('toggle-recording');
+        global.display.remove_keybinding('toggle-recording', this._bindingSettings);
     },
 
     _ensureRecorder: function() {
