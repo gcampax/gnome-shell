@@ -62,6 +62,7 @@
 #include "st-scroll-bar.h"
 #include "st-scrollable.h"
 #include "st-scroll-view-fade.h"
+#include "st-enum-types.h"
 #include <clutter/clutter.h>
 #include <math.h>
 
@@ -90,8 +91,8 @@ struct _StScrollViewPrivate
   StAdjustment *vadjustment;
   ClutterActor *vscroll;
 
-  GtkPolicyType hscrollbar_policy;
-  GtkPolicyType vscrollbar_policy;
+  StScrollPolicy hscrollbar_policy;
+  StScrollPolicy vscrollbar_policy;
 
   gfloat        row_size;
   gfloat        column_size;
@@ -303,17 +304,11 @@ get_scrollbar_width (StScrollView *scroll,
                      gfloat        for_height)
 {
   StScrollViewPrivate *priv = scroll->priv;
+  gfloat min_size;
 
-  if (CLUTTER_ACTOR_IS_VISIBLE (priv->vscroll))
-    {
-      gfloat min_size;
-
-      clutter_actor_get_preferred_width (CLUTTER_ACTOR (priv->vscroll), for_height,
-                                         &min_size, NULL);
-      return min_size;
-    }
-  else
-    return 0;
+  clutter_actor_get_preferred_width (CLUTTER_ACTOR (priv->vscroll), for_height,
+                                     &min_size, NULL);
+  return min_size;
 }
 
 static double
@@ -321,18 +316,11 @@ get_scrollbar_height (StScrollView *scroll,
                       gfloat        for_width)
 {
   StScrollViewPrivate *priv = scroll->priv;
+  gfloat min_size;
 
-  if (CLUTTER_ACTOR_IS_VISIBLE (priv->hscroll))
-    {
-      gfloat min_size;
-
-      clutter_actor_get_preferred_height (CLUTTER_ACTOR (priv->hscroll), for_width,
-                                          &min_size, NULL);
-
-      return min_size;
-    }
-  else
-    return 0;
+  clutter_actor_get_preferred_height (CLUTTER_ACTOR (priv->hscroll), for_width,
+                                      &min_size, NULL);
+  return min_size;
 }
 
 static void
@@ -359,11 +347,12 @@ st_scroll_view_get_preferred_width (ClutterActor *actor,
 
   switch (priv->hscrollbar_policy)
     {
-    case GTK_POLICY_NEVER:
+    case ST_POLICY_NEVER:
       min_width = child_min_width;
       break;
-    case GTK_POLICY_ALWAYS:
-    case GTK_POLICY_AUTOMATIC:
+    case ST_POLICY_ALWAYS:
+    case ST_POLICY_AUTOMATIC:
+    case ST_POLICY_AUTOMATIC_ALLOCATE:
       /* Should theoretically use the min width of the hscrollbar,
        * but that's not cleanly defined at the moment */
       min_width = 0;
@@ -372,13 +361,14 @@ st_scroll_view_get_preferred_width (ClutterActor *actor,
 
   switch (priv->vscrollbar_policy)
     {
-    case GTK_POLICY_NEVER:
+    case ST_POLICY_NEVER:
       account_for_vscrollbar = FALSE;
       break;
-    case GTK_POLICY_ALWAYS:
+    case ST_POLICY_ALWAYS:
+    case ST_POLICY_AUTOMATIC_ALLOCATE:
       account_for_vscrollbar = TRUE;
       break;
-    case GTK_POLICY_AUTOMATIC:
+    case ST_POLICY_AUTOMATIC:
       /* For automatic scrollbars, we always request space for the vertical
        * scrollbar; we won't know whether we actually need one until our
        * height is assigned in allocate().
@@ -433,10 +423,11 @@ st_scroll_view_get_preferred_height (ClutterActor *actor,
 
   switch (priv->vscrollbar_policy)
     {
-    case GTK_POLICY_NEVER:
+    case ST_POLICY_NEVER:
       break;
-    case GTK_POLICY_ALWAYS:
-    case GTK_POLICY_AUTOMATIC:
+    case ST_POLICY_ALWAYS:
+    case ST_POLICY_AUTOMATIC:
+    case ST_POLICY_AUTOMATIC_ALLOCATE:
       /* We've requested space for the scrollbar, subtract it back out */
       for_width -= sb_width;
       break;
@@ -444,13 +435,14 @@ st_scroll_view_get_preferred_height (ClutterActor *actor,
 
   switch (priv->hscrollbar_policy)
     {
-    case GTK_POLICY_NEVER:
+    case ST_POLICY_NEVER:
       account_for_hscrollbar = FALSE;
       break;
-    case GTK_POLICY_ALWAYS:
+    case ST_POLICY_ALWAYS:
+    case ST_POLICY_AUTOMATIC_ALLOCATE:
       account_for_hscrollbar = TRUE;
       break;
-    case GTK_POLICY_AUTOMATIC:
+    case ST_POLICY_AUTOMATIC:
       account_for_hscrollbar = for_width < child_min_width;
       break;
     }
@@ -462,11 +454,12 @@ st_scroll_view_get_preferred_height (ClutterActor *actor,
 
   switch (priv->vscrollbar_policy)
     {
-    case GTK_POLICY_NEVER:
+    case ST_POLICY_NEVER:
       min_height = child_min_height;
       break;
-    case GTK_POLICY_ALWAYS:
-    case GTK_POLICY_AUTOMATIC:
+    case ST_POLICY_ALWAYS:
+    case ST_POLICY_AUTOMATIC:
+    case ST_POLICY_AUTOMATIC_ALLOCATE:
       /* Should theoretically use the min height of the vscrollbar,
        * but that's not cleanly defined at the moment */
       min_height = 0;
@@ -534,9 +527,11 @@ st_scroll_view_allocate (ClutterActor          *actor,
       clutter_actor_get_preferred_width (priv->child, -1,
                                          &child_min_width, NULL);
 
-      if (priv->vscrollbar_policy == GTK_POLICY_AUTOMATIC)
+      if (priv->vscrollbar_policy == ST_POLICY_AUTOMATIC ||
+          priv->vscrollbar_policy == ST_POLICY_AUTOMATIC_ALLOCATE)
         {
-          if (priv->hscrollbar_policy == GTK_POLICY_AUTOMATIC)
+          if (priv->hscrollbar_policy == ST_POLICY_AUTOMATIC ||
+              priv->vscrollbar_policy == ST_POLICY_AUTOMATIC_ALLOCATE)
             {
               /* Pass one, try without a vertical scrollbar */
               clutter_actor_get_preferred_height (priv->child, avail_width, &child_min_height, NULL);
@@ -554,7 +549,7 @@ st_scroll_view_allocate (ClutterActor          *actor,
             }
           else
             {
-              hscrollbar_visible = priv->hscrollbar_policy != GTK_POLICY_NEVER;
+              hscrollbar_visible = priv->hscrollbar_policy != ST_POLICY_NEVER;
 
               /* try without a vertical scrollbar */
               clutter_actor_get_preferred_height (priv->child, avail_width, &child_min_height, NULL);
@@ -563,18 +558,19 @@ st_scroll_view_allocate (ClutterActor          *actor,
         }
       else
         {
-          vscrollbar_visible = priv->vscrollbar_policy != GTK_POLICY_NEVER;
+          vscrollbar_visible = priv->vscrollbar_policy != ST_POLICY_NEVER;
 
-          if (priv->hscrollbar_policy == GTK_POLICY_AUTOMATIC)
+          if (priv->hscrollbar_policy == ST_POLICY_AUTOMATIC ||
+              priv->hscrollbar_policy == ST_POLICY_AUTOMATIC_ALLOCATE)
             hscrollbar_visible = child_min_width > avail_height - (vscrollbar_visible ? 0 : sb_width);
           else
-            hscrollbar_visible = priv->hscrollbar_policy != GTK_POLICY_NEVER;
+            hscrollbar_visible = priv->hscrollbar_policy != ST_POLICY_NEVER;
         }
     }
   else
     {
-      hscrollbar_visible = priv->hscrollbar_policy != GTK_POLICY_NEVER;
-      vscrollbar_visible = priv->vscrollbar_policy != GTK_POLICY_NEVER;
+      hscrollbar_visible = priv->hscrollbar_policy != ST_POLICY_NEVER;
+      vscrollbar_visible = priv->vscrollbar_policy != ST_POLICY_NEVER;
     }
 
   /* Whether or not we show the scrollbars, if the scrollbars are visible
@@ -625,9 +621,9 @@ st_scroll_view_allocate (ClutterActor          *actor,
   /* Now fold visibility into the scrollbar sizes to simplify the rest
    * of the computations.
    */
-  if (!hscrollbar_visible)
+  if (!hscrollbar_visible && !(priv->hscrollbar_policy == ST_POLICY_AUTOMATIC_ALLOCATE))
     sb_height = 0;
-  if (!vscrollbar_visible)
+  if (!vscrollbar_visible && !(priv->vscrollbar_policy == ST_POLICY_AUTOMATIC_ALLOCATE))
     sb_width = 0;
 
   /* Child */
@@ -787,16 +783,16 @@ st_scroll_view_class_init (StScrollViewClass *klass)
   pspec = g_param_spec_enum ("vscrollbar-policy",
                              "Vertical Scrollbar Policy",
                              "When the vertical scrollbar is displayed",
-                             GTK_TYPE_POLICY_TYPE,
-                             GTK_POLICY_AUTOMATIC,
+                             ST_TYPE_SCROLL_POLICY,
+                             ST_POLICY_AUTOMATIC,
                              G_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_VSCROLLBAR_POLICY, pspec);
 
   pspec = g_param_spec_enum ("hscrollbar-policy",
                              "Horizontal Scrollbar Policy",
                              "When the horizontal scrollbar is displayed",
-                             GTK_TYPE_POLICY_TYPE,
-                             GTK_POLICY_AUTOMATIC,
+                             ST_TYPE_SCROLL_POLICY,
+                             ST_POLICY_AUTOMATIC,
                              G_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_HSCROLLBAR_POLICY, pspec);
 
@@ -830,8 +826,8 @@ st_scroll_view_init (StScrollView *self)
 {
   StScrollViewPrivate *priv = self->priv = SCROLL_VIEW_PRIVATE (self);
 
-  priv->hscrollbar_policy = GTK_POLICY_AUTOMATIC;
-  priv->vscrollbar_policy = GTK_POLICY_AUTOMATIC;
+  priv->hscrollbar_policy = ST_POLICY_AUTOMATIC;
+  priv->vscrollbar_policy = ST_POLICY_AUTOMATIC;
 
   priv->hadjustment = g_object_new (ST_TYPE_ADJUSTMENT, NULL);
   priv->hscroll = g_object_new (ST_TYPE_SCROLL_BAR,
@@ -1094,9 +1090,9 @@ st_scroll_view_get_mouse_scrolling (StScrollView *scroll)
  * Set the scroll policy.
  */
 void
-st_scroll_view_set_policy (StScrollView   *scroll,
-                           GtkPolicyType   hscroll,
-                           GtkPolicyType   vscroll)
+st_scroll_view_set_policy (StScrollView    *scroll,
+                           StScrollPolicy   hscroll,
+                           StScrollPolicy   vscroll)
 {
   StScrollViewPrivate *priv;
 

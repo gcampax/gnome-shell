@@ -43,6 +43,20 @@ typedef struct _StScrollViewPrivate   StScrollViewPrivate;
 typedef struct _StScrollViewClass     StScrollViewClass;
 
 /**
+ * StScrollPolicy:
+ * @ST_POLICY_ALWAYS: Always show scrollbars.
+ * @ST_POLICY_AUTOMATIC: Show scrollbars when needed.
+ * @ST_POLICY_NEVER: Never show scrollbars.
+ * @ST_POLICY_AUTOMATIC_ALLOCATE: Show scrollbars when needed, but always allocate them.
+ */
+typedef enum {
+  ST_POLICY_ALWAYS = GTK_POLICY_ALWAYS,
+  ST_POLICY_AUTOMATIC = GTK_POLICY_AUTOMATIC,
+  ST_POLICY_NEVER = GTK_POLICY_NEVER,
+  ST_POLICY_AUTOMATIC_ALLOCATE
+} StScrollPolicy;
+
+/**
  * StScrollView:
  *
  * The contents of this structure are private and should only be accessed
@@ -81,8 +95,8 @@ void          st_scroll_view_set_mouse_scrolling (StScrollView *scroll,
 gboolean      st_scroll_view_get_mouse_scrolling (StScrollView *scroll);
 
 void          st_scroll_view_set_policy          (StScrollView   *scroll,
-                                                  GtkPolicyType   hscroll,
-                                                  GtkPolicyType   vscroll);
+                                                  StScrollPolicy  hscroll,
+                                                  StScrollPolicy  vscroll);
 
 G_END_DECLS
 

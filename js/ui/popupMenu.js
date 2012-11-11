@@ -1297,8 +1297,8 @@ const PopupSubMenu = new Lang.Class({
         // with long content, we make it scrollable - the scrollbar will only take
         // effect if a CSS max-height is set on the top menu.
         this.actor = new St.ScrollView({ style_class: 'popup-sub-menu',
-                                         hscrollbar_policy: Gtk.PolicyType.NEVER,
-                                         vscrollbar_policy: Gtk.PolicyType.NEVER });
+                                         hscrollbar_policy: St.ScrollPolicy.NEVER,
+                                         vscrollbar_policy: St.ScrollPolicy.NEVER });
 
         this.actor.add_actor(this.box);
         this.actor._delegate = this;
@@ -1347,7 +1347,7 @@ const PopupSubMenu = new Lang.Class({
         // when we *don't* need it, so turn off the scrollbar when that's true.
         // Dynamic changes in whether we need it aren't handled properly.
         this.actor.vscrollbar_policy =
-            needsScrollbar ? Gtk.PolicyType.AUTOMATIC : Gtk.PolicyType.NEVER;
+            needsScrollbar ? St.ScrollPolicy.AUTOMATIC : St.ScrollPolicy.NEVER;
 
         if (needsScrollbar)
             this.actor.add_style_pseudo_class('scrolled');

@@ -568,7 +568,7 @@ const SwitcherList = new Lang.Class({
 
         this._scrollView = new St.ScrollView({ style_class: 'hfade',
                                                enable_mouse_scrolling: false });
-        this._scrollView.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.NEVER);
+        this._scrollView.set_policy(St.ScrollPolicy.NEVER, St.ScrollPolicy.NEVER);
 
         let scrollBox = new St.BoxLayout();
         scrollBox.add_actor(this._list);

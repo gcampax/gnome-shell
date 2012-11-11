@@ -556,9 +556,8 @@ const KeyboardSource = new Lang.Class({
         this.keepTrayOnSummaryClick = true;
     },
 
-    handleSummaryClick: function() {
-        let event = Clutter.get_current_event();
-        if (event.type() != Clutter.EventType.BUTTON_RELEASE)
+    handleSummaryClick: function(button) {
+        if (button != St.ButtonMask.ONE)
             return false;
 
         this.open();

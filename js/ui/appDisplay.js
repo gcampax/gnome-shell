@@ -47,7 +47,7 @@ const AlphabeticalView = new Lang.Class({
                                          y_align: St.Align.START,
                                          style_class: 'vfade' });
         this.actor.add_actor(box);
-        this.actor.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+        this.actor.set_policy(St.ScrollPolicy.NEVER, St.ScrollPolicy.AUTOMATIC);
         this.actor.connect('notify::mapped', Lang.bind(this,
             function() {
                 if (!this.actor.mapped)

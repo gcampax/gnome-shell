@@ -23,7 +23,9 @@ const ButtonBox = new Lang.Class({
 
         this.container = new St.Bin({ y_fill: true,
                                       x_fill: true,
-                                      child: this.actor });
+                                      child: this.actor,
+                                      show_on_set_parent: false
+                                    });
 
         this.actor.connect('get-preferred-width', Lang.bind(this, this._getPreferredWidth));
         this.actor.connect('get-preferred-height', Lang.bind(this, this._getPreferredHeight));
