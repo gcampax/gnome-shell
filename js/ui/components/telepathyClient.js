@@ -13,6 +13,7 @@ const Tp = imports.gi.TelepathyGLib;
 const History = imports.misc.history;
 const Main = imports.ui.main;
 const MessageTray = imports.ui.messageTray;
+const NotificationDaemon = imports.ui.notificationDaemon;
 const Params = imports.misc.params;
 const PopupMenu = imports.ui.popupMenu;
 
@@ -383,10 +384,25 @@ const TelepathyClient = new Lang.Class({
         }
 
         /* Display notification to ask user to accept/reject request */
-        let source = this._ensureAppSource();
+        let source = this._ensureSubscriptionSource();
 
         let notif = new SubscriptionRequestNotification(source, contact);
         source.notify(notif);
+    },
+
+    _ensureSubscriptionSource: function() {
+        if (this._subscriptionSource == null) {
+            this._subscriptionSource = new MessageTray.Source(_("Chat"),
+                                                              'empathy');
+            this._accountSource.policy = new NotificationDaemon.NotificationApplicationPolicy('empathy');
+
+            Main.messageTray.add(this._subscriptionSource);
+            this._subscriptionSource.connect('destroy', Lang.bind(this, function () {
+                this._subscriptionSource = null;
+            }));
+        }
+
+        return this._subscriptionSource;
     },
 
     _accountConnectionStatusNotifyCb: function(account) {
@@ -402,7 +418,7 @@ const TelepathyClient = new Lang.Class({
             return;
 
         /* Display notification that account failed to connect */
-        let source = this._ensureAppSource();
+        let source = this._ensureAccountSource();
 
         notif = new AccountNotification(source, account, connectionError);
         this._accountNotifications[account.get_object_path()] = notif;
@@ -412,12 +428,15 @@ const TelepathyClient = new Lang.Class({
         source.notify(notif);
     },
 
-    _ensureAppSource: function() {
-        if (this._appSource == null) {
-            this._appSource = new MessageTray.Source(_("Chat"), 'empathy');
-            Main.messageTray.add(this._appSource);
-            this._appSource.connect('destroy', Lang.bind(this, function () {
-                this._appSource = null;
+    _ensureAccountSource: function() {
+        if (this._accountSource == null) {
+            this._accountSource = new MessageTray.Source(_("Online accounts"),
+                                                         'goa-panel');
+            this._accountSource.policy = new NotificationDaemon.NotificationApplicationPolicy('gnome-online-accounts-panel');
+
+            Main.messageTray.add(this._accountSource);
+            this._accountSource.connect('destroy', Lang.bind(this, function () {
+                this._accountSource = null;
             }));
         }
 
@@ -482,6 +501,10 @@ const ChatSource = new Lang.Class({
         }));
         rightClickMenu.add(item.actor);
         return rightClickMenu;
+    },
+
+    _createPolicy: function() {
+        return new NotificationDaemon.NotificationApplicationPolicy('empathy');
     },
 
     _updateAlias: function() {
@@ -1055,6 +1078,10 @@ const ApproverSource = new Lang.Class({
                                              Lang.bind(this, function(domain, code, msg) {
             this.destroy();
         }));
+    },
+
+    _createPolicy: function() {
+        return new NotificationDaemon.NotificationApplicationPolicy('empathy');
     },
 
     destroy: function() {

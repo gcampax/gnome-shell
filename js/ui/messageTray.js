@@ -18,6 +18,7 @@ const BoxPointer = imports.ui.boxpointer;
 const CtrlAltTab = imports.ui.ctrlAltTab;
 const GnomeSession = imports.misc.gnomeSession;
 const GrabHelper = imports.ui.grabHelper;
+const Hash = imports.misc.hash;
 const Lightbox = imports.ui.lightbox;
 const Main = imports.ui.main;
 const PointerWatcher = imports.ui.pointerWatcher;
@@ -243,6 +244,32 @@ function makeCloseButton() {
     return closeButton;
 }
 
+// NotificationPolicy:
+// An object that holds all bits of configurable policy related to a notification
+// source, such as whether to play sound or honour the critical bit.
+//
+// A notification without a policy object will inherit the default one.
+const NotificationPolicy = new Lang.Class({
+    Name: 'NotificationPolicy',
+
+    _init: function(params) {
+        params = Params.parse(params, { enable: true,
+                                        enableSound: true,
+                                        showBanners: true,
+                                        forceExpanded: false,
+                                        showInLockScreen: true,
+                                        residentInLockScreen: false
+                                      });
+        Lang.copyProperties(params, this);
+    },
+
+    // Do nothing for the default policy. These methods are only useful for the
+    // GSettings policy.
+    store: function() { },
+    destroy: function() { }
+});
+Signals.addSignalMethods(NotificationPolicy.prototype);
+
 // Notification:
 // @source: the notification's Source
 // @title: the title
@@ -300,6 +327,10 @@ function makeCloseButton() {
 // the content and the action area of the notification will be cleared.
 // The content area is also always cleared if 'customContent' is false
 // because it might contain the @banner that didn't fit in the banner mode.
+//
+// If @params contains 'soundName' or 'soundFile', the corresponding
+// event sound is played when the notification is shown (if the policy for
+// @source allows playing sounds).
 const Notification = new Lang.Class({
     Name: 'Notification',
 
@@ -394,7 +425,9 @@ const Notification = new Lang.Class({
                                         titleMarkup: false,
                                         bannerMarkup: false,
                                         bodyMarkup: false,
-                                        clear: false });
+                                        clear: false,
+                                        soundName: null,
+                                        soundFile: null });
 
         this._customContent = params.customContent;
 
@@ -492,6 +525,10 @@ const Notification = new Lang.Class({
 
         if (params.body)
             this.addBody(params.body, params.bodyMarkup);
+
+        this._soundName = params.soundName;
+        this._soundFile = params.soundFile;
+
         this.updated();
     },
 
@@ -845,6 +882,33 @@ const Notification = new Lang.Class({
                (!this._titleFitsInBannerMode && !this._table.has_style_class_name('multi-line-notification'));
     },
 
+    notify: function() {
+        if (!this.source.policy.enableSound)
+            return;
+
+        if (this._soundName) {
+            if (this.source.app) {
+                let app = this.source.app;
+
+                global.play_theme_sound_full(0, this._soundName,
+                                             this.title, null,
+                                             app.get_id(), app.get_name());
+            } else {
+                global.play_theme_sound(0, this._soundName, this.title, null);
+            }
+        } else if (this._soundFile) {
+            if (this.source.app) {
+                let app = this.source.app;
+
+                global.play_sound_file_full(0, this._soundFile,
+                                            this.title, null,
+                                            app.get_id(), app.get_name());
+            } else {
+                global.play_sound_file(0, this._soundFile, this.title, null);
+            }
+        }
+    },
+
     updated: function() {
         if (this.expanded)
             this.expand(false);
@@ -1058,11 +1122,12 @@ const Source = new Lang.Class({
         this.isTransient = false;
         this.isChat = false;
         this.isMuted = false;
-        this.showInLockScreen = true;
         this.keepTrayOnSummaryClick = false;
 
         this.destroyed = false;
         this.notifications = [];
+
+        this.policy = this._createPolicy();
     },
 
     get count() {
@@ -1079,6 +1144,10 @@ const Source = new Lang.Class({
 
     countUpdated: function() {
         this.emit('count-updated');
+    },
+
+    _createPolicy: function() {
+        return new NotificationPolicy();
     },
 
     buildRightClickMenu: function() {
@@ -1170,12 +1239,17 @@ const Source = new Lang.Class({
     notify: function(notification) {
         notification.acknowledged = false;
         this.pushNotification(notification);
-        if (!this.isMuted)
-             this.emit('notify', notification);
+
+        if (!this.isMuted && this.policy.showBanners) {
+            notification.notify();
+            this.emit('notify', notification);
+        }
     },
 
     destroy: function(reason) {
         this.destroyed = true;
+
+        this.policy.destroy();
         this.emit('destroy', reason);
     },
 
@@ -1269,6 +1343,14 @@ const SummaryItem = new Lang.Class({
         this.rightClickMenu = source.buildRightClickMenu();
         if (this.rightClickMenu)
             global.focus_manager.add_group(this.rightClickMenu);
+    },
+
+    destroy: function() {
+        // remove the actor from the summary item so it doesn't get destroyed
+        // with us
+        this._sourceBox.remove_actor(this._sourceIcon);
+
+        this.actor.destroy();
     },
 
     _onKeyPress: function(actor, event) {
@@ -1439,7 +1521,7 @@ const MessageTray = new Lang.Class({
 
         this._summaryBoxPointerItem = null;
         this._summaryBoxPointerContentUpdatedId = 0;
-        this._summaryBoxPointerDoneDisplayingId = 0;
+        this._sourceDoneDisplayingId = 0;
         this._clickedSummaryItem = null;
         this._clickedSummaryItemMouseButton = -1;
         this._clickedSummaryItemAllocationChangedId = 0;
@@ -1528,7 +1610,7 @@ const MessageTray = new Lang.Class({
                                       Meta.KeyBindingFlags.NONE,
                                       Lang.bind(this, this._expandActiveNotification));
 
-        this._summaryItems = [];
+        this._sources = new Hash.HashTable();
         this._chatSummaryItemsCount = 0;
 
         let pointerWatcher = PointerWatcher.getPointerWatcher();
@@ -1624,15 +1706,7 @@ const MessageTray = new Lang.Class({
     },
 
     contains: function(source) {
-        return this._getIndexOfSummaryItemForSource(source) >= 0;
-    },
-
-    _getIndexOfSummaryItemForSource: function(source) {
-        for (let i = 0; i < this._summaryItems.length; i++) {
-            if (this._summaryItems[i].source == source)
-                return i;
-        }
-        return -1;
+        return this._sources.contains(source);
     },
 
     add: function(source) {
@@ -1641,7 +1715,24 @@ const MessageTray = new Lang.Class({
             return;
         }
 
-        let summaryItem = new SummaryItem(source);
+        // Register that we got a notification for this source
+        source.policy.store();
+
+        source.policy.connect('enable-changed', Lang.bind(this, this._onSourceEnableChanged, source));
+        source.policy.connect('policy-changed', Lang.bind(this, this._updateState));
+        if (source.policy.enable)
+            this._addSource(source);
+    },
+
+    _addSource: function(source) {
+        let obj = {
+            source: source,
+            summaryItem: new SummaryItem(source),
+            notifyId: 0,
+            destroyId: 0,
+            mutedChangedId: 0
+        };
+        let summaryItem = obj.summaryItem;
 
         if (source.isChat) {
             this._summary.insert_child_at_index(summaryItem.actor, 0);
@@ -1650,11 +1741,11 @@ const MessageTray = new Lang.Class({
             this._summary.insert_child_at_index(summaryItem.actor, this._chatSummaryItemsCount);
         }
 
-        this._summaryItems.push(summaryItem);
+        this._sources.replace(source, obj);
 
-        source.connect('notify', Lang.bind(this, this._onNotify));
-
-        source.connect('muted-changed', Lang.bind(this,
+        obj.notifyId = source.connect('notify', Lang.bind(this, this._onNotify));
+        obj.destroyId = source.connect('destroy', Lang.bind(this, this._onSourceDestroy));
+        obj.mutedChangedId = source.connect('muted-changed', Lang.bind(this,
             function () {
                 if (source.isMuted)
                     this._notificationQueue = this._notificationQueue.filter(function(notification) {
@@ -1673,8 +1764,6 @@ const MessageTray = new Lang.Class({
                 this._onSummaryItemClicked(summaryItem, 3);
             }));
 
-        source.connect('destroy', Lang.bind(this, this._onSourceDestroy));
-
         // We need to display the newly-added summary item, but if the
         // caller is about to post a notification, we want to show that
         // *first* and not show the summary item until after it hides.
@@ -1684,21 +1773,16 @@ const MessageTray = new Lang.Class({
         this.emit('summary-item-added', summaryItem);
     },
 
-    getSummaryItems: function() {
-        return this._summaryItems;
-    },
-
-    _onSourceDestroy: function(source) {
-        let index = this._getIndexOfSummaryItemForSource(source);
-        if (index == -1)
-            return;
-
-        let summaryItemToRemove = this._summaryItems[index];
-
-        this._summaryItems.splice(index, 1);
+    _removeSource: function(source) {
+        let [, obj] = this._sources.remove(source);
+        let summaryItem = obj.summaryItem;
 
         if (source.isChat)
             this._chatSummaryItemsCount--;
+
+        source.disconnect(obj.notifyId);
+        source.disconnect(obj.destroyId);
+        source.disconnect(obj.mutedChangedId);
 
         let needUpdate = false;
 
@@ -1707,15 +1791,40 @@ const MessageTray = new Lang.Class({
             this._notificationRemoved = true;
             needUpdate = true;
         }
-        if (this._clickedSummaryItem == summaryItemToRemove) {
+        if (this._clickedSummaryItem == summaryItem) {
             this._setClickedSummaryItem(null);
             needUpdate = true;
         }
 
-        summaryItemToRemove.actor.destroy();
+        summaryItem.destroy();
 
         if (needUpdate)
             this._updateState();
+    },
+
+    getSummaryItems: function() {
+        let summaryItems = [ ];
+        this._sources.forEach(function(k, v) {
+            summaryItems.push(v.summaryItem);
+        });
+
+        return summaryItems;
+    },
+
+    _onSourceEnableChanged: function(policy, source) {
+        let wasEnabled = this.contains(source);
+        let shouldBeEnabled = policy.enable;
+
+        if (wasEnabled != shouldBeEnabled) {
+            if (shouldBeEnabled)
+                this._addSource(source);
+            else
+                this._removeSource(source);
+        }
+    },
+
+    _onSourceDestroy: function(source) {
+        this._removeSource(source);
     },
 
     _onNotificationDestroy: function(notification) {
@@ -2235,14 +2344,17 @@ const MessageTray = new Lang.Class({
 
         Tweener.removeTweens(this._notificationWidget);
 
-        // We auto-expand notifications with CRITICAL urgency.
+        // We auto-expand notifications with CRITICAL urgency, or for which the relevant setting
+        // is on in the control center.
         // We use Tweener.removeTweens() to remove a tween that was hiding the notification we are
         // updating, in case that notification was in the process of being hidden. However,
         // Tweener.removeTweens() would also remove a tween that was updating the position of the
         // notification we are updating, in case that notification was already expanded and its height
         // changed. Therefore we need to call this._expandNotification() for expanded notifications
         // to make sure their position is updated.
-        if (this._notification.urgency == Urgency.CRITICAL || this._notification.expanded)
+        if (this._notification.urgency == Urgency.CRITICAL ||
+            this._notification.source.policy.forceExpanded ||
+            this._notification.expanded)
             this._expandNotification(true);
 
         // We tween all notifications to full opacity. This ensures that both new notifications and
@@ -2569,10 +2681,12 @@ const MessageTray = new Lang.Class({
         this._summaryBoxPointer.bin.child = null;
         this._summaryBoxPointerItem.disconnect(this._summaryBoxPointerContentUpdatedId);
         this._summaryBoxPointerContentUpdatedId = 0;
-        this._summaryBoxPointerItem.closeButton.disconnect(this._summaryBoxPointerCloseClickedId);
-        this._summaryBoxPointerCloseClickedId = 0;
+        if (this._summaryBoxPointerClockClickedId) {
+            this._summaryBoxPointerItem.closeButton.disconnect(this._summaryBoxPointerCloseClickedId);
+            this._summaryBoxPointerCloseClickedId = 0;
+        }
         this._summaryBoxPointerItem.source.disconnect(this._sourceDoneDisplayingId);
-        this._summaryBoxPointerDoneDisplayingId = 0;
+        this._sourceDoneDisplayingId = 0;
 
         let sourceNotificationStackDoneShowing = null;
         if (doneShowingNotificationStack) {
