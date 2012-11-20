@@ -40,7 +40,7 @@ function versionCompare(required, reference) {
 
 function isSupported() {
     try {
-        let params = GLib.Variant.new('(ss)', ['org.gnome.DisplayManager.Manager', 'Version']);
+        let params = new GLib.Variant('(ss)', ['org.gnome.DisplayManager.Manager', 'Version']);
         let result = Gio.DBus.system.call_sync('org.gnome.DisplayManager',
                                                '/org/gnome/DisplayManager/Manager',
                                                'org.freedesktop.DBus.Properties',

@@ -583,7 +583,7 @@ const GnomeShellMountOpHandler = new Lang.Class({
     _clearCurrentRequest: function(response, details) {
         if (this._currentInvocation) {
             this._currentInvocation.return_value(
-                GLib.Variant.new('(ua{sv})', [response, details]));
+                new GLib.Variant('(ua{sv})', [response, details]));
         }
 
         this._ensureEmptyRequest();
@@ -662,8 +662,8 @@ const GnomeShellMountOpHandler = new Lang.Class({
                     response = Gio.MountOperationResult.HANDLED;
 
                     let passSave = remember ? Gio.PasswordSave.PERMANENTLY : Gio.PasswordSave.NEVER;
-                    details['password_save'] = GLib.Variant.new('u', passSave);
-                    details['password'] = GLib.Variant.new('s', password);
+                    details['password_save'] = new GLib.Variant('u', passSave);
+                    details['password'] = new GLib.Variant('s', password);
                 }
 
                 this._clearCurrentRequest(response, details);
@@ -703,7 +703,7 @@ const GnomeShellMountOpHandler = new Lang.Class({
         this._dialog.connect('response', Lang.bind(this,
             function(object, choice) {
                 this._clearCurrentRequest(Gio.MountOperationResult.HANDLED,
-                                          { choice: GLib.Variant.new('i', choice) });
+                                          { choice: new GLib.Variant('i', choice) });
             }));
 
         this._dialog.update(message, choices);
@@ -749,7 +749,7 @@ const GnomeShellMountOpHandler = new Lang.Class({
                     response = Gio.MountOperationResult.ABORTED;
                 } else {
                     response = Gio.MountOperationResult.HANDLED;
-                    details['choice'] = GLib.Variant.new('i', choice);
+                    details['choice'] = new GLib.Variant('i', choice);
                 }
 
                 this._clearCurrentRequest(response, details);

@@ -70,7 +70,7 @@ const ScreenshotService = new Lang.Class({
             flashspot.fire();
         }
 
-        let retval = GLib.Variant.new('(bs)', [result, filenameUsed]);
+        let retval = new GLib.Variant('(bs)', [result, filenameUsed]);
         invocation.return_value(retval);
     },
 
@@ -104,7 +104,7 @@ const ScreenshotService = new Lang.Class({
         selectArea.connect('finished', Lang.bind(this,
             function(selectArea, areaRectangle) {
                 if (areaRectangle) {
-                    let retval = GLib.Variant.new('(iiii)',
+                    let retval = new GLib.Variant('(iiii)',
                         [areaRectangle.x, areaRectangle.y,
                          areaRectangle.width, areaRectangle.height]);
                     invocation.return_value(retval);

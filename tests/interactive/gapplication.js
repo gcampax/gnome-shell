@@ -15,7 +15,7 @@ function do_action_param(action, parameter) {
 }
 
 function do_action_toggle(action) {
-    action.set_state(GLib.Variant.new('b', !action.state.deep_unpack()));
+    action.set_state(new GLib.Variant('b', !action.state.deep_unpack()));
     print ("Toggled");
 }
 
@@ -40,7 +40,7 @@ function main() {
     action.connect('activate', do_action);
     app.add_action(action);
 
-    let action = new Gio.SimpleAction({ name: 'toggle', state: GLib.Variant.new('b', false) });
+    let action = new Gio.SimpleAction({ name: 'toggle', state: new GLib.Variant('b', false) });
     action.connect('activate', do_action_toggle);
     action.connect('notify::state', do_action_state_change);
     app.add_action(action);
@@ -50,11 +50,11 @@ function main() {
     action.connect('activate', do_action);
     app.add_action(action);
 
-    let action = new Gio.SimpleAction({ name: 'parameter-int', parameter_type: GLib.VariantType.new('u') });
+    let action = new Gio.SimpleAction({ name: 'parameter-int', parameter_type: new GLib.VariantType('u') });
     action.connect('activate', do_action_param);
     app.add_action(action);
 
-    let action = new Gio.SimpleAction({ name: 'parameter-string', parameter_type: GLib.VariantType.new('s') });
+    let action = new Gio.SimpleAction({ name: 'parameter-string', parameter_type: new GLib.VariantType('s') });
     action.connect('activate', do_action_param);
     app.add_action(action);
 
@@ -82,11 +82,11 @@ function main() {
     menu.append_submenu('Recent files', submenu);
 
     let item = Gio.MenuItem.new('Say 42', null);
-    item.set_action_and_target_value('app.parameter-int', GLib.Variant.new('u', 42));
+    item.set_action_and_target_value('app.parameter-int', new GLib.Variant('u', 42));
     menu.append_item(item);
 
     let item = Gio.MenuItem.new('Say 43', null);
-    item.set_action_and_target_value('app.parameter-int', GLib.Variant.new('u', 43));
+    item.set_action_and_target_value('app.parameter-int', new GLib.Variant('u', 43));
     menu.append_item(item);
 
     let window = null;

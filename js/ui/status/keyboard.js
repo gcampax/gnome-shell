@@ -487,7 +487,7 @@ const InputSourceIndicator = new Lang.Class({
                 if (this._currentSource.index == is.index)
                     return;
                 this._settings.set_value(KEY_CURRENT_INPUT_SOURCE,
-                                         GLib.Variant.new_uint32(is.index));
+                                         new GLib.Variant('u', is.index));
             }));
 
             if (!(is.shortName in inputSourcesByShortName))

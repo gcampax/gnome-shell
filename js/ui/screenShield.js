@@ -413,7 +413,7 @@ const Arrow = new Lang.Class({
         let node = this.get_theme_node();
         this._shadow = node.get_shadow('-arrow-shadow');
         if (this._shadow)
-            this._shadowHelper = St.ShadowHelper.new(this._shadow);
+            this._shadowHelper = new St.ShadowHelper(this._shadow);
         else
             this._shadowHelper = null;
     },
@@ -1225,7 +1225,7 @@ const ScreenShieldFallback = new Lang.Class({
     },
 
     unlock: function() {
-        this._proxy.call('SetActive', GLib.Variant.new('(b)', false),
+        this._proxy.call('SetActive', new GLib.Variant('(b)', false),
                          Gio.DBusCallFlags.NONE, -1, null, null);
     },
 });

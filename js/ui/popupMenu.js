@@ -1884,7 +1884,7 @@ const RemoteMenu = new Lang.Class({
                 action.items.push(item);
                 item.setShowDot(action.state.deep_unpack() == item._remoteTarget);
                 specificSignalId = item.connect('activate', Lang.bind(this, function(item) {
-                    this.actionGroup.activate_action(action_id, GLib.Variant.new_string(item._remoteTarget));
+                    this.actionGroup.activate_action(action_id, new GLib.Variant('s', item._remoteTarget));
                 }));
                 break;
             default:

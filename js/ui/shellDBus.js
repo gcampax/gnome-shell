@@ -188,7 +188,7 @@ const GnomeShellExtensions = new Lang.Class({
             default:
                 continue;
             }
-            out[key] = GLib.Variant.new(type, val);
+            out[key] = new GLib.Variant(type, val);
         }
 
         return out;
@@ -236,7 +236,7 @@ const GnomeShellExtensions = new Lang.Class({
 
     _extensionStateChanged: function(_, newState) {
         this._dbusImpl.emit_signal('ExtensionStatusChanged',
-                                   GLib.Variant.new('(sis)', [newState.uuid, newState.state, newState.error]));
+                                   new GLib.Variant('(sis)', [newState.uuid, newState.state, newState.error]));
     }
 });
 
@@ -247,8 +247,8 @@ const ScreenSaverDBus = new Lang.Class({
         this.parent();
 
         this._screenShield = screenShield;
-        screenShield.connect('active-changed', Lang.bind(this, function(shield) {
-            this._dbusImpl.emit_signal('ActiveChanged', GLib.Variant.new('(b)', [shield.active]));
+        screenShield.connect('lock-status-changed', Lang.bind(this, function(shield) {
+            this._dbusImpl.emit_signal('ActiveChanged', new GLib.Variant('(b)', [shield.active]));
         }));
 
         this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(ScreenSaverIface, this);

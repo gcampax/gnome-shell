@@ -216,7 +216,7 @@ const InstallExtensionDialog = new Lang.Class({
 
     _onCancelButtonPressed: function(button, event) {
         this.close(global.get_current_time());
-        this._invocation.return_value(GLib.Variant.new('(s)', ['cancelled']));
+        this._invocation.return_value(new GLib.Variant('(s)', ['cancelled']));
     },
 
     _onInstallButtonPressed: function(button, event) {
@@ -250,7 +250,7 @@ const InstallExtensionDialog = new Lang.Class({
                 return;
             }
 
-            invocation.return_value(GLib.Variant.new('(s)', 'successful'));
+            invocation.return_value(new GLib.Variant('(s)', 'successful'));
         }
 
         _httpSession.queue_message(message, Lang.bind(this, function(session, message) {

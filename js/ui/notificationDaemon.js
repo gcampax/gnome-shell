@@ -378,7 +378,7 @@ const NotificationDaemon = new Lang.Class({
                                             this._emitNotificationClosed(id, NotificationClosedReason.DISMISSED);
                                             return false;
                                         }));
-            return invocation.return_value(GLib.Variant.new('(u)', [id]));
+            return invocation.return_value(new GLib.Variant('(u)', [id]));
         }
 
         let rewrites = rewriteRules[appName];
@@ -426,14 +426,14 @@ const NotificationDaemon = new Lang.Class({
 
         if (source) {
             this._notifyForSource(source, ndata);
-            return invocation.return_value(GLib.Variant.new('(u)', [id]));
+            return invocation.return_value(new GLib.Variant('(u)', [id]));
         }
 
         if (replacesId) {
             // There's already a pending call to GetConnectionUnixProcessID,
             // which will see the new notification data when it finishes,
             // so we don't have to do anything.
-            return invocation.return_value(GLib.Variant.new('(u)', [id]));;
+            return invocation.return_value(new GLib.Variant('(u)', [id]));;
         }
 
         this._busProxy.GetConnectionUnixProcessIDRemote(sender, Lang.bind(this, function (result, excp) {
@@ -467,7 +467,7 @@ const NotificationDaemon = new Lang.Class({
             this._notifyForSource(source, ndata);
         }));
 
-        return invocation.return_value(GLib.Variant.new('(u)', [id]));
+        return invocation.return_value(new GLib.Variant('(u)', [id]));
     },
 
     _notifyForSource: function(source, ndata) {
@@ -613,12 +613,12 @@ const NotificationDaemon = new Lang.Class({
 
     _emitNotificationClosed: function(id, reason) {
         this._dbusImpl.emit_signal('NotificationClosed',
-                                   GLib.Variant.new('(uu)', [id, reason]));
+                                   new GLib.Variant('(uu)', [id, reason]));
     },
 
     _emitActionInvoked: function(id, action) {
         this._dbusImpl.emit_signal('ActionInvoked',
-                                   GLib.Variant.new('(us)', [id, action]));
+                                   new GLib.Variant('(us)', [id, action]));
     },
 
     _onTrayIconAdded: function(o, icon) {
