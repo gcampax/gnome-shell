@@ -45,11 +45,11 @@ st-enum-types.c: stamp-st-enum-types.h $(srcdir)/st/st-enum-types.c.in
 st_source_h =					\
 	st/st-adjustment.h			\
 	st/st-bin.h				\
-	st/st-border-image.h			\
 	st/st-box-layout.h			\
 	st/st-box-layout-child.h		\
 	st/st-button.h				\
 	st/st-clipboard.h			\
+	st/st-css.h				\
 	st/st-drawing-area.h			\
 	st/st-entry.h				\
 	st/st-focus-manager.h			\
@@ -57,7 +57,6 @@ st_source_h =					\
 	st/st-icon-colors.h			\
 	st/st-im-text.h				\
 	st/st-label.h				\
-	st/st-private.h				\
 	st/st-scrollable.h			\
 	st/st-scroll-bar.h			\
 	st/st-scroll-view.h			\
@@ -65,7 +64,6 @@ st_source_h =					\
 	st/st-table.h				\
 	st/st-table-child.h			\
 	st/st-texture-cache.h			\
-	st/st-theme.h				\
 	st/st-theme-context.h			\
 	st/st-theme-node.h			\
 	st/st-types.h				\
@@ -103,11 +101,15 @@ EXTRA_DIST += 					\
 	$(NULL)
 
 st_source_private_h =				\
+	st/st-border-image.h			\
+	st/st-css-private.h			\
+	st/st-css-value.h			\
 	st/st-private.h				\
 	st/st-table-private.h			\
 	st/st-theme-private.h			\
 	st/st-theme-node-private.h		\
 	st/st-theme-node-transition.h
+
 
 # please, keep this sorted alphabetically
 st_source_c =					\
@@ -118,6 +120,10 @@ st_source_c =					\
 	st/st-box-layout-child.c		\
 	st/st-button.c				\
 	st/st-clipboard.c			\
+	st/st-css.c				\
+	st/st-css-color.c			\
+	st/st-css-properties.c			\
+	st/st-css-value.c			\
 	st/st-drawing-area.c			\
 	st/st-entry.c				\
 	st/st-focus-manager.c			\
@@ -133,7 +139,6 @@ st_source_c =					\
 	st/st-table.c				\
 	st/st-table-child.c			\
 	st/st-texture-cache.c			\
-	st/st-theme.c				\
 	st/st-theme-context.c			\
 	st/st-theme-node.c			\
 	st/st-theme-node-drawing.c		\

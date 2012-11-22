@@ -100,6 +100,14 @@ StScrollBar StButton#vhandle:active {
     background-color: #3465a4;
 }
 
+/* Icons */
+StIcon {
+    color: black;
+    -st-success-color: rgb(78, 154, 6);
+    -st-warning-color: rgb(245, 118, 62);
+    -st-error-color: rgb(204, 0, 0);
+}
+
 /* Check Boxes */
 
 .check-box ShellGenericContainer {

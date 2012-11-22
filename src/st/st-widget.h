@@ -30,7 +30,6 @@
 
 #include <clutter/clutter.h>
 #include <st/st-types.h>
-#include <st/st-theme.h>
 #include <st/st-theme-node.h>
 
 G_BEGIN_DECLS
@@ -99,7 +98,7 @@ void                  st_widget_add_style_pseudo_class    (StWidget        *acto
                                                            const gchar     *pseudo_class);
 void                  st_widget_remove_style_pseudo_class (StWidget        *actor,
                                                            const gchar     *pseudo_class);
-const gchar *         st_widget_get_style_pseudo_class    (StWidget        *actor);
+gchar *               st_widget_get_style_pseudo_class    (StWidget        *actor);
 gboolean              st_widget_has_style_pseudo_class    (StWidget        *actor,
                                                            const gchar     *pseudo_class);
 
@@ -109,16 +108,13 @@ void                  st_widget_add_style_class_name      (StWidget        *acto
                                                            const gchar     *style_class);
 void                  st_widget_remove_style_class_name   (StWidget        *actor,
                                                            const gchar     *style_class);
-const gchar *         st_widget_get_style_class_name      (StWidget        *actor);
+gchar *               st_widget_get_style_class_name      (StWidget        *actor);
 gboolean              st_widget_has_style_class_name      (StWidget        *actor,
                                                            const gchar     *style_class);
 
 void                  st_widget_set_style                 (StWidget        *actor,
                                                            const gchar     *style);
 const gchar *         st_widget_get_style                 (StWidget        *actor);
-void                  st_widget_set_theme                 (StWidget        *actor,
-                                                           StTheme         *theme);
-StTheme *             st_widget_get_theme                 (StWidget        *actor);
 
 void                  st_widget_set_track_hover           (StWidget        *widget,
                                                            gboolean         track_hover);

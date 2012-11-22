@@ -22,15 +22,16 @@
 #include <config.h>
 
 #include "st-texture-cache.h"
-#include "st-theme.h"
 #include "st-theme-context.h"
+#include "st-css-private.h"
+#include "st-theme-node-private.h"
 
 struct _StThemeContext {
   GObject parent;
 
   PangoFontDescription *font;
   StThemeNode *root_node;
-  StTheme *theme;
+  StCascade *cascade;
 
   /* set of StThemeNode */
   GHashTable *nodes;
@@ -73,9 +74,8 @@ st_theme_context_finalize (GObject *object)
     g_hash_table_unref (context->nodes);
   if (context->root_node)
     g_object_unref (context->root_node);
-  if (context->theme)
-    g_object_unref (context->theme);
 
+  g_object_unref (context->cascade);
   pango_font_description_free (context->font);
 
   G_OBJECT_CLASS (st_theme_context_parent_class)->finalize (object);
@@ -100,6 +100,7 @@ st_theme_context_class_init (StThemeContextClass *klass)
 static void
 st_theme_context_init (StThemeContext *context)
 {
+  context->cascade = st_cascade_new ();
   context->font = pango_font_description_from_string (DEFAULT_FONT);
 
   g_signal_connect (st_texture_cache_get_default (),
@@ -203,48 +204,17 @@ st_theme_context_get_for_stage (ClutterStage *stage)
 }
 
 /**
- * st_theme_context_set_theme:
+ * st_theme_context_get_cascade:
  * @context: a #StThemeContext
  *
- * Sets the default set of theme stylesheets for the context. This theme will
- * be used for the root node and for nodes descending from it, unless some other
- * style is explicitely specified.
+ * Return value: (transfer none): the #StCascade associated with @context
  */
-void
-st_theme_context_set_theme (StThemeContext          *context,
-                            StTheme                 *theme)
-{
-  g_return_if_fail (ST_IS_THEME_CONTEXT (context));
-  g_return_if_fail (theme == NULL || ST_IS_THEME (theme));
-
-  if (context->theme != theme)
-    {
-      if (context->theme)
-        g_object_unref (context->theme);
-
-      context->theme = theme;
-
-      if (context->theme)
-        g_object_ref (context->theme);
-
-      st_theme_context_changed (context);
-    }
-}
-
-/**
- * st_theme_context_get_theme:
- * @context: a #StThemeContext
- *
- * Gets the default theme for the context. See st_theme_context_set_theme()
- *
- * Return value: (transfer none): the default theme for the context
- */
-StTheme *
-st_theme_context_get_theme (StThemeContext *context)
+StCascade *
+st_theme_context_get_cascade (StThemeContext *context)
 {
   g_return_val_if_fail (ST_IS_THEME_CONTEXT (context), NULL);
 
-  return context->theme;
+  return context->cascade;
 }
 
 /**
@@ -303,9 +273,13 @@ st_theme_context_get_font (StThemeContext *context)
 StThemeNode *
 st_theme_context_get_root_node (StThemeContext *context)
 {
+  GArray *dummy_array = g_array_new (FALSE, FALSE, sizeof (GQuark));
+
   if (context->root_node == NULL)
-    context->root_node = st_theme_node_new (context, NULL, context->theme,
-                                            G_TYPE_NONE, NULL, NULL, NULL, NULL);
+    context->root_node = st_theme_node_new (context, NULL,
+                                            CLUTTER_TYPE_STAGE, NULL, dummy_array, dummy_array, NULL);
+
+  g_array_unref (dummy_array);
 
   return context->root_node;
 }

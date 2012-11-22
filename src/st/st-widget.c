@@ -40,6 +40,7 @@
 #include "st-texture-cache.h"
 #include "st-theme-context.h"
 #include "st-theme-node-transition.h"
+#include "st-theme-node-private.h"
 
 #include "st-widget-accessible.h"
 
@@ -51,10 +52,9 @@
  */
 struct _StWidgetPrivate
 {
-  StTheme      *theme;
   StThemeNode  *theme_node;
-  gchar        *pseudo_class;
-  gchar        *style_class;
+  GArray       *pseudo_classes;
+  GArray       *style_classes;
   gchar        *inline_style;
 
   StThemeNodeTransition *transition_animation;
@@ -96,7 +96,6 @@ enum
 {
   PROP_0,
 
-  PROP_THEME,
   PROP_PSEUDO_CLASS,
   PROP_STYLE_CLASS,
   PROP_STYLE,
@@ -143,10 +142,6 @@ st_widget_set_property (GObject      *gobject,
 
   switch (prop_id)
     {
-    case PROP_THEME:
-      st_widget_set_theme (actor, g_value_get_object (value));
-      break;
-
     case PROP_PSEUDO_CLASS:
       st_widget_set_style_pseudo_class (actor, g_value_get_string (value));
       break;
@@ -208,16 +203,12 @@ st_widget_get_property (GObject    *gobject,
 
   switch (prop_id)
     {
-    case PROP_THEME:
-      g_value_set_object (value, priv->theme);
-      break;
-
     case PROP_PSEUDO_CLASS:
-      g_value_set_string (value, priv->pseudo_class);
+      g_value_take_string (value, st_widget_get_style_pseudo_class (actor));
       break;
 
     case PROP_STYLE_CLASS:
-      g_value_set_string (value, priv->style_class);
+      g_value_take_string (value, st_widget_get_style_class_name (actor));
       break;
 
     case PROP_STYLE:
@@ -276,22 +267,22 @@ st_widget_texture_cache_changed (StTextureCache *cache,
 {
   StWidget *actor = ST_WIDGET (user_data);
   StThemeNode *node = actor->priv->theme_node;
-  StBorderImage *border_image;
-  char *path;
+  GFile *border_image_source;
+  GFile *ref;
   gboolean changed;
 
   if (node == NULL)
     return;
 
-  path = g_filename_from_uri (uri, NULL, NULL);
+  ref = g_file_new_for_uri (uri);
 
-  changed = g_strcmp0 (st_theme_node_get_background_image (node), path) == 0;
+  changed = g_file_equal (st_theme_node_get_background_image (node), ref);
 
-  border_image = st_theme_node_get_border_image (node);
-  if (!changed && border_image)
-    changed = strcmp (st_border_image_get_filename (border_image), path) == 0;
+  border_image_source = st_theme_node_get_border_image_source (node);
+  if (!changed && border_image_source)
+    changed = g_file_equal (border_image_source, ref);
 
-  g_free (path);
+  g_object_unref (ref);
 
   if (!changed)
     return;
@@ -307,12 +298,6 @@ st_widget_dispose (GObject *gobject)
 {
   StWidget *actor = ST_WIDGET (gobject);
   StWidgetPrivate *priv = ST_WIDGET (actor)->priv;
-
-  if (priv->theme)
-    {
-      g_object_unref (priv->theme);
-      priv->theme = NULL;
-    }
 
   if (priv->theme_node)
     {
@@ -349,8 +334,8 @@ st_widget_finalize (GObject *gobject)
 {
   StWidgetPrivate *priv = ST_WIDGET (gobject)->priv;
 
-  g_free (priv->style_class);
-  g_free (priv->pseudo_class);
+  g_array_unref (priv->style_classes);
+  g_array_unref (priv->pseudo_classes);
   g_object_unref (priv->local_state_set);
   g_free (priv->accessible_name);
   g_free (priv->inline_style);
@@ -564,6 +549,40 @@ get_root_theme_node (ClutterStage *stage)
   return st_theme_context_get_root_node (context);
 }
 
+/* FIXME: this should be in glib */
+/* FIXME 2: actually, we could use a refcounted copy-on-write structure */
+static GArray *
+g_array_duplicate (GArray *array)
+{
+  GArray *self;
+
+  self = g_array_new (FALSE, FALSE, g_array_get_element_size (array));
+  g_array_append_vals (self, array->data, array->len);
+
+  return self;
+}
+
+static GQuark
+st_widget_get_direction_pseudo_class (StWidget *widget)
+{
+  static GQuark rtl, ltr;
+
+  if (clutter_actor_get_text_direction (CLUTTER_ACTOR (widget)) == CLUTTER_TEXT_DIRECTION_RTL)
+    {
+      if (G_UNLIKELY (rtl == 0))
+        return rtl = g_quark_from_string ("rtl");
+      else
+        return rtl;
+    }
+  else
+    {
+      if (G_UNLIKELY (ltr == 0))
+        return ltr = g_quark_from_string ("ltr");
+      else
+        return ltr;
+    }
+}
+
 /**
  * st_widget_get_theme_node:
  * @widget: a #StWidget
@@ -593,7 +612,8 @@ st_widget_get_theme_node (StWidget *widget)
       StThemeNode *parent_node = NULL;
       ClutterStage *stage = NULL;
       ClutterActor *parent;
-      char *pseudo_class, *direction_pseudo_class;
+      GArray *style_classes, *pseudo_classes;
+      GQuark direction_pseudo;
 
       parent = clutter_actor_get_parent (CLUTTER_ACTOR (widget));
       while (parent != NULL)
@@ -615,31 +635,26 @@ st_widget_get_theme_node (StWidget *widget)
       if (parent_node == NULL)
         parent_node = get_root_theme_node (CLUTTER_STAGE (stage));
 
+      style_classes = g_array_duplicate (priv->style_classes);
+      pseudo_classes = g_array_duplicate (priv->pseudo_classes);
+
       /* Always append a "magic" pseudo class indicating the text
        * direction, to allow to adapt the CSS when necessary without
        * requiring separate style sheets.
        */
-      if (clutter_actor_get_text_direction (CLUTTER_ACTOR (widget)) == CLUTTER_TEXT_DIRECTION_RTL)
-        direction_pseudo_class = "rtl";
-      else
-        direction_pseudo_class = "ltr";
-
-      if (priv->pseudo_class)
-        pseudo_class = g_strconcat(priv->pseudo_class, " ",
-                                   direction_pseudo_class, NULL);
-      else
-        pseudo_class = direction_pseudo_class;
+      direction_pseudo = st_widget_get_direction_pseudo_class (widget);
+      g_array_append_val (pseudo_classes, direction_pseudo);
 
       context = st_theme_context_get_for_stage (stage);
-      tmp_node = st_theme_node_new (context, parent_node, priv->theme,
+      tmp_node = st_theme_node_new (context, parent_node,
                                     G_OBJECT_TYPE (widget),
                                     clutter_actor_get_name (CLUTTER_ACTOR (widget)),
-                                    priv->style_class,
-                                    pseudo_class,
+                                    style_classes,
+                                    pseudo_classes,
                                     priv->inline_style);
 
-      if (pseudo_class != direction_pseudo_class)
-        g_free (pseudo_class);
+      g_array_unref (style_classes);
+      g_array_unref (pseudo_classes);
 
       priv->theme_node = g_object_ref (st_theme_context_intern_node (context,
                                                                      tmp_node));
@@ -886,20 +901,6 @@ st_widget_class_init (StWidgetClass *klass)
                                                         ST_PARAM_READWRITE));
 
   /**
-   * StWidget:theme:
-   *
-   * A theme set on this actor overriding the global theming for this actor
-   * and its descendants
-   */
-  g_object_class_install_property (gobject_class,
-                                   PROP_THEME,
-                                   g_param_spec_object ("theme",
-                                                        "Theme",
-                                                        "Theme override",
-                                                        ST_TYPE_THEME,
-                                                        ST_PARAM_READWRITE));
-
-  /**
    * StWidget:stylable:
    *
    * Enable or disable styling of the widget
@@ -1032,143 +1033,100 @@ st_widget_class_init (StWidgetClass *klass)
                   G_TYPE_NONE, 0);
 }
 
-/**
- * st_widget_set_theme:
- * @actor: a #StWidget
- * @theme: a new style class string
- *
- * Overrides the theme that would be inherited from the actor's parent
- * or the stage with an entirely new theme (set of stylesheets).
- */
-void
-st_widget_set_theme (StWidget  *actor,
-                     StTheme   *theme)
-{
-  StWidgetPrivate *priv;
-
-  g_return_if_fail (ST_IS_WIDGET (actor));
-
-  priv = actor->priv;
-
-  if (theme != priv->theme)
-    {
-      if (priv->theme)
-        g_object_unref (priv->theme);
-      priv->theme = g_object_ref (theme);
-
-      st_widget_style_changed (actor);
-
-      g_object_notify (G_OBJECT (actor), "theme");
-    }
-}
-
-/**
- * st_widget_get_theme:
- * @actor: a #StWidget
- *
- * Gets the overriding theme set on the actor. See st_widget_set_theme()
- *
- * Return value: (transfer none): the overriding theme, or %NULL
- */
-StTheme *
-st_widget_get_theme (StWidget *actor)
-{
-  g_return_val_if_fail (ST_IS_WIDGET (actor), NULL);
-
-  return actor->priv->theme;
-}
-
-static const gchar *
-find_class_name (const gchar *class_list,
-                 const gchar *class_name)
-{
-  gint len = strlen (class_name);
-  const gchar *match;
-
-  if (!class_list)
-    return NULL;
-
-  for (match = strstr (class_list, class_name); match; match = strstr (match + 1, class_name))
-    {
-      if ((match == class_list || g_ascii_isspace (match[-1])) &&
-          (match[len] == '\0' || g_ascii_isspace (match[len])))
-        return match;
-    }
-
-  return NULL;
-}
-
 static gboolean
-set_class_list (gchar       **class_list,
+find_style_quark (GArray *array,
+                  GQuark  quark)
+{
+  int i;
+
+  for (i = 0; i < array->len; i++)
+    if (g_array_index(array, GQuark, i) == quark)
+      return TRUE;
+
+  return FALSE;
+}
+
+static void
+set_class_list (GArray       *array,
                 const gchar  *new_class_list)
 {
-  if (g_strcmp0 (*class_list, new_class_list) != 0)
+  gchar *cur;
+  gchar *l;
+  gchar *temp;
+
+  g_array_set_size (array, 0);
+
+  if (new_class_list == NULL)
+    return;
+
+  l = g_strdup (new_class_list);
+  cur = strtok_r (l, " \t\f\r\n", &temp);
+
+  while (cur != NULL)
     {
-      g_free (*class_list);
-      *class_list = g_strdup (new_class_list);
-      return TRUE;
+      GQuark q;
+
+      q = g_quark_from_string (l);
+      g_array_append_val (array, q);
+
+      cur = strtok_r (NULL, " \t\f\r\n", &temp);
     }
-  else
-    return FALSE;
+
+  g_free (l);
 }
 
 static gboolean
-add_class_name (gchar       **class_list,
-                const gchar  *class_name)
+add_style_quark (GArray *array,
+                 GQuark  quark)
 {
-  gchar *new_class_list;
+  int i;
 
-  if (*class_list)
-    {
-      if (find_class_name (*class_list, class_name))
-        return FALSE;
+  for (i = 0; i < array->len; i++)
+    if (g_array_index (array, GQuark, i) == quark)
+      return FALSE;
 
-      new_class_list = g_strdup_printf ("%s %s", *class_list, class_name);
-      g_free (*class_list);
-      *class_list = new_class_list;
-    }
-  else
-    *class_list = g_strdup (class_name);
-
+  g_array_append_val (array, quark);
   return TRUE;
 }
 
 static gboolean
-remove_class_name (gchar       **class_list,
-                   const gchar  *class_name)
+remove_style_quark (GArray *array,
+                    GQuark  quark)
 {
-  const gchar *match, *end;
-  gchar *new_class_list;
+  int i;
 
-  if (!*class_list)
-    return FALSE;
-
-  if (strcmp (*class_list, class_name) == 0)
+  for (i = 0; i < array->len; i++)
     {
-      g_free (*class_list);
-      *class_list = NULL;
-      return TRUE;
+      if (g_array_index (array, GQuark, i) == quark)
+        {
+          g_array_remove_index_fast (array, i);
+          return TRUE;
+        }
     }
 
-  match = find_class_name (*class_list, class_name);
-  if (!match)
-    return FALSE;
-  end = match + strlen (class_name);
-
-  /* Adjust either match or end to include a space as well.
-   * (One or the other must be possible at this point.)
-   */
-  if (match != *class_list)
-    match--;
-  else
-    end++;
-
-  new_class_list = g_strdup_printf ("%.*s%s", (int)(match - *class_list),
-                                    *class_list, end);
-  g_free (*class_list);
-  *class_list = new_class_list;
-
   return TRUE;
+}
+
+static char *
+make_class_list (GArray *array)
+{
+  GString *str;
+  int i;
+
+  str = g_string_new ("");
+
+  for (i = 0; i < array->len; i++)
+    {
+      GQuark q;
+
+      if (i > 0)
+        g_string_append_c (str, ' ');
+
+      q = g_array_index (array, GQuark, i);
+      g_string_append (str, g_quark_to_string (q));
+    }
+
+  return g_string_free (str, FALSE);
 }
 
 /**
@@ -1187,11 +1145,9 @@ st_widget_set_style_class_name (StWidget    *actor,
 {
   g_return_if_fail (ST_IS_WIDGET (actor));
 
-  if (set_class_list (&actor->priv->style_class, style_class_list))
-    {
-      st_widget_style_changed (actor);
-      g_object_notify (G_OBJECT (actor), "style-class");
-    }
+  set_class_list (actor->priv->style_classes, style_class_list);
+  st_widget_style_changed (actor);
+  g_object_notify (G_OBJECT (actor), "style-class");
 }
 
 /**
@@ -1206,10 +1162,14 @@ void
 st_widget_add_style_class_name (StWidget    *actor,
                                 const gchar *style_class)
 {
+  GQuark class_quark;
+
   g_return_if_fail (ST_IS_WIDGET (actor));
   g_return_if_fail (style_class != NULL);
 
-  if (add_class_name (&actor->priv->style_class, style_class))
+  class_quark = g_quark_from_string (style_class);
+
+  if (add_style_quark (actor->priv->style_classes, class_quark))
     {
       st_widget_style_changed (actor);
       g_object_notify (G_OBJECT (actor), "style-class");
@@ -1228,10 +1188,14 @@ void
 st_widget_remove_style_class_name (StWidget    *actor,
                                    const gchar *style_class)
 {
+  GQuark class_quark;
+
   g_return_if_fail (ST_IS_WIDGET (actor));
   g_return_if_fail (style_class != NULL);
 
-  if (remove_class_name (&actor->priv->style_class, style_class))
+  class_quark = g_quark_from_string (style_class);
+
+  if (remove_style_quark (actor->priv->style_classes, class_quark))
     {
       st_widget_style_changed (actor);
       g_object_notify (G_OBJECT (actor), "style-class");
@@ -1247,12 +1211,12 @@ st_widget_remove_style_class_name (StWidget    *actor,
  * Returns: the class name string. The string is owned by the #StWidget and
  * should not be modified or freed.
  */
-const gchar*
+gchar*
 st_widget_get_style_class_name (StWidget *actor)
 {
   g_return_val_if_fail (ST_IS_WIDGET (actor), NULL);
 
-  return actor->priv->style_class;
+  return make_class_list (actor->priv->style_classes);
 }
 
 /**
@@ -1269,9 +1233,13 @@ gboolean
 st_widget_has_style_class_name (StWidget    *actor,
                                 const gchar *style_class)
 {
+  GQuark class_quark;
+
   g_return_val_if_fail (ST_IS_WIDGET (actor), FALSE);
 
-  return find_class_name (actor->priv->style_class, style_class) != NULL;
+  class_quark = g_quark_from_string (style_class);
+
+  return find_style_quark (actor->priv->style_classes, class_quark);
 }
 
 /**
@@ -1287,12 +1255,12 @@ st_widget_has_style_class_name (StWidget    *actor,
  * Returns: the pseudo class list string. The string is owned by the
  * #StWidget and should not be modified or freed.
  */
-const gchar*
+gchar*
 st_widget_get_style_pseudo_class (StWidget *actor)
 {
   g_return_val_if_fail (ST_IS_WIDGET (actor), NULL);
 
-  return actor->priv->pseudo_class;
+  return make_class_list (actor->priv->pseudo_classes);
 }
 
 /**
@@ -1309,9 +1277,13 @@ gboolean
 st_widget_has_style_pseudo_class (StWidget    *actor,
                                   const gchar *pseudo_class)
 {
+  GQuark pseudo_quark;
+
   g_return_val_if_fail (ST_IS_WIDGET (actor), FALSE);
 
-  return find_class_name (actor->priv->pseudo_class, pseudo_class) != NULL;
+  pseudo_quark = g_quark_from_string (pseudo_class);
+
+  return find_style_quark (actor->priv->pseudo_classes, pseudo_quark);
 }
 
 /**
@@ -1330,11 +1302,9 @@ st_widget_set_style_pseudo_class (StWidget    *actor,
 {
   g_return_if_fail (ST_IS_WIDGET (actor));
 
-  if (set_class_list (&actor->priv->pseudo_class, pseudo_class_list))
-    {
-      st_widget_style_changed (actor);
-      g_object_notify (G_OBJECT (actor), "pseudo-class");
-    }
+  set_class_list (actor->priv->pseudo_classes, pseudo_class_list);
+  st_widget_style_changed (actor);
+  g_object_notify (G_OBJECT (actor), "pseudo-class");
 }
 
 /**
@@ -1349,10 +1319,14 @@ void
 st_widget_add_style_pseudo_class (StWidget    *actor,
                                   const gchar *pseudo_class)
 {
+  GQuark pseudo_quark;
+
   g_return_if_fail (ST_IS_WIDGET (actor));
   g_return_if_fail (pseudo_class != NULL);
 
-  if (add_class_name (&actor->priv->pseudo_class, pseudo_class))
+  pseudo_quark = g_quark_from_string (pseudo_class);
+
+  if (add_style_quark (actor->priv->pseudo_classes, pseudo_quark))
     {
       st_widget_style_changed (actor);
       g_object_notify (G_OBJECT (actor), "pseudo-class");
@@ -1370,10 +1344,14 @@ void
 st_widget_remove_style_pseudo_class (StWidget    *actor,
                                      const gchar *pseudo_class)
 {
+  GQuark pseudo_quark;
+
   g_return_if_fail (ST_IS_WIDGET (actor));
   g_return_if_fail (pseudo_class != NULL);
 
-  if (remove_class_name (&actor->priv->pseudo_class, pseudo_class))
+  pseudo_quark = g_quark_from_string (pseudo_class);
+
+  if (remove_style_quark (actor->priv->pseudo_classes, pseudo_quark))
     {
       st_widget_style_changed (actor);
       g_object_notify (G_OBJECT (actor), "pseudo-class");
@@ -2153,30 +2131,17 @@ st_describe_actor (ClutterActor *actor)
 
   if (ST_IS_WIDGET (actor))
     {
-      const char *style_class = st_widget_get_style_class_name (ST_WIDGET (actor));
-      const char *pseudo_class = st_widget_get_style_pseudo_class (ST_WIDGET (actor));
-      char **classes;
+      StWidgetPrivate *priv = ST_WIDGET (actor)->priv;
 
-      if (style_class)
+      for (i = 0; i < priv->style_classes->len; i++)
         {
-          classes = g_strsplit (style_class, ",", -1);
-          for (i = 0; classes[i]; i++)
-            {
-              g_strchug (classes[i]);
-              g_string_append_printf (desc, ".%s", classes[i]);
-            }
-          g_strfreev (classes);
+          GQuark q = g_array_index (priv->style_classes, GQuark, i);
+          g_string_append_printf (desc, ".%s", g_quark_to_string (q));
         }
-
-      if (pseudo_class)
+      for (i = 0; i < priv->pseudo_classes->len; i++)
         {
-          classes = g_strsplit (pseudo_class, ",", -1);
-          for (i = 0; classes[i]; i++)
-            {
-              g_strchug (classes[i]);
-              g_string_append_printf (desc, ":%s", classes[i]);
-            }
-          g_strfreev (classes);
+          GQuark q = g_array_index (priv->pseudo_classes, GQuark, i);
+          g_string_append_printf (desc, ".%s", g_quark_to_string (q));
         }
     }
 

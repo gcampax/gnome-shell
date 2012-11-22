@@ -247,7 +247,7 @@ st_entry_style_changed (StWidget *self)
   ClutterColor color;
   const PangoFontDescription *font;
   gchar *font_string, *font_name;
-  gdouble size;
+  float size;
 
   theme_node = st_widget_get_theme_node (self);
  

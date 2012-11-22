@@ -1000,7 +1000,20 @@ st_texture_cache_load_gicon (StTextureCache    *cache,
                              GIcon             *icon,
                              gint               size)
 {
-  return load_gicon_with_colors (cache, icon, size, theme_node ? st_theme_node_get_icon_colors (theme_node) : NULL);
+  StIconColors *colors;
+  ClutterActor *actor;
+
+  if (theme_node)
+    colors = st_theme_node_get_icon_colors (theme_node);
+  else
+    colors = NULL;
+
+  actor = load_gicon_with_colors (cache, icon, size, colors);
+
+  if (colors)
+    st_icon_colors_unref (colors);
+
+  return actor;
 }
 
 static ClutterActor *
@@ -1343,7 +1356,7 @@ out:
 /**
  * st_texture_cache_load_file_to_cogl_texture:
  * @cache: A #StTextureCache
- * @file_path: Path to a file in supported image format
+ * @file: Path to a file in supported image format
  *
  * This function synchronously loads the given file path
  * into a COGL texture.  On error, a warning is emitted
@@ -1353,34 +1366,31 @@ out:
  */
 CoglHandle
 st_texture_cache_load_file_to_cogl_texture (StTextureCache *cache,
-                                            const gchar    *file_path)
+                                            GFile          *file)
 {
   CoglHandle texture;
-  GFile *file;
   char *uri;
   GError *error = NULL;
 
-  file = g_file_new_for_path (file_path);
   uri = g_file_get_uri (file);
-
   texture = st_texture_cache_load_uri_sync_to_cogl_texture (cache, ST_TEXTURE_CACHE_POLICY_FOREVER,
                                                             uri, -1, -1, &error);
-  g_object_unref (file);
-  g_free (uri);
-
   if (texture == NULL)
     {
-      g_warning ("Failed to load %s: %s", file_path, error->message);
+      g_warning ("Failed to load %s: %s", uri, error->message);
       g_clear_error (&error);
+      g_free (uri);
       return COGL_INVALID_HANDLE;
     }
+
+  g_free (uri);
   return texture;
 }
 
 /**
  * st_texture_cache_load_file_to_cairo_surface:
  * @cache: A #StTextureCache
- * @file_path: Path to a file in supported image format
+ * @file: Path to a file in supported image format
  *
  * This function synchronously loads the given file path
  * into a cairo surface.  On error, a warning is emitted
@@ -1390,27 +1400,26 @@ st_texture_cache_load_file_to_cogl_texture (StTextureCache *cache,
  */
 cairo_surface_t *
 st_texture_cache_load_file_to_cairo_surface (StTextureCache *cache,
-                                             const gchar    *file_path)
+                                             GFile          *file)
 {
   cairo_surface_t *surface;
-  GFile *file;
   char *uri;
   GError *error = NULL;
 
-  file = g_file_new_for_path (file_path);
   uri = g_file_get_uri (file);
 
   surface = st_texture_cache_load_uri_sync_to_cairo_surface (cache, ST_TEXTURE_CACHE_POLICY_FOREVER,
                                                              uri, -1, -1, &error);
-  g_object_unref (file);
-  g_free (uri);
 
   if (surface == NULL)
     {
-      g_warning ("Failed to load %s: %s", file_path, error->message);
+      g_warning ("Failed to load %s: %s", uri, error->message);
       g_clear_error (&error);
+      g_free (uri);
       return NULL;
     }
+
+  g_free (uri);
   return surface;
 }
 

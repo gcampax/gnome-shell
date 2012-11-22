@@ -51,10 +51,10 @@ G_DEFINE_BOXED_TYPE (StShadowHelper, st_shadow_helper, st_shadow_helper_copy, st
  */
 StShadow *
 st_shadow_new (ClutterColor *color,
-               gdouble       xoffset,
-               gdouble       yoffset,
-               gdouble       blur,
-               gdouble       spread,
+               float         xoffset,
+               float         yoffset,
+               float         blur,
+               float         spread,
                gboolean      inset)
 {
   StShadow *shadow;

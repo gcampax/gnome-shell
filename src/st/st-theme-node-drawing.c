@@ -589,7 +589,7 @@ create_cairo_pattern_of_background_image (StThemeNode *node,
   cairo_pattern_t *pattern;
   cairo_content_t  content;
   cairo_matrix_t   matrix;
-  const char *file;
+  GFile *file;
 
   StTextureCache *texture_cache;
 
@@ -927,7 +927,7 @@ paint_inset_box_shadow_to_cairo_context (StThemeNode     *node,
 static CoglHandle
 st_theme_node_prerender_background (StThemeNode *node)
 {
-  StBorderImage *border_image;
+  GFile *border_image_source;
   CoglHandle texture;
   guint radius[4];
   int i;
@@ -950,7 +950,7 @@ st_theme_node_prerender_background (StThemeNode *node)
   ClutterActorBox paint_box;
   cairo_path_t *interior_path = NULL;
 
-  border_image = st_theme_node_get_border_image (node);
+  border_image_source = st_theme_node_get_border_image_source (node);
 
   shadow_spec = st_theme_node_get_background_image_shadow (node);
   box_shadow_spec = st_theme_node_get_box_shadow (node);
@@ -1023,7 +1023,7 @@ st_theme_node_prerender_background (StThemeNode *node)
     }
   else
     {
-      const char *background_image;
+      GFile *background_image;
 
       background_image = st_theme_node_get_background_image (node);
 
@@ -1090,7 +1090,7 @@ st_theme_node_prerender_background (StThemeNode *node)
    * otherwise the outline shape is filled with the background
    * directly
    */
-  if (border_image == NULL &&
+  if (border_image_source == NULL &&
       (border_width[ST_SIDE_TOP] > 0 ||
        border_width[ST_SIDE_RIGHT] > 0 ||
        border_width[ST_SIDE_BOTTOM] > 0 ||
@@ -1318,14 +1318,14 @@ st_theme_node_render_resources (StThemeNode   *node,
                                 float          height)
 {
   StTextureCache *texture_cache;
-  StBorderImage *border_image;
+  GFile *border_image_source;
   gboolean has_border;
   gboolean has_border_radius;
   gboolean has_inset_box_shadow;
   gboolean has_large_corners;
   StShadow *box_shadow_spec;
   StShadow *background_image_shadow_spec;
-  const char *background_image;
+  GFile *background_image;
 
   g_return_if_fail (width > 0 && height > 0);
 
@@ -1340,8 +1340,7 @@ st_theme_node_render_resources (StThemeNode   *node,
   node->alloc_width = width;
   node->alloc_height = height;
 
-  _st_theme_node_ensure_background (node);
-  _st_theme_node_ensure_geometry (node);
+  _st_theme_node_ensure_computed (node);
 
   box_shadow_spec = st_theme_node_get_box_shadow (node);
   has_inset_box_shadow = box_shadow_spec && box_shadow_spec->inset;
@@ -1385,16 +1384,10 @@ st_theme_node_render_resources (StThemeNode   *node,
 
   /* Load referenced images from disk and draw anything we need with cairo now */
   background_image = st_theme_node_get_background_image (node);
-  border_image = st_theme_node_get_border_image (node);
+  border_image_source = st_theme_node_get_border_image_source (node);
 
-  if (border_image)
-    {
-      const char *filename;
-
-      filename = st_border_image_get_filename (border_image);
-
-      node->border_slices_texture = st_texture_cache_load_file_to_cogl_texture (texture_cache, filename);
-    }
+  if (border_image_source)
+    node->border_slices_texture = st_texture_cache_load_file_to_cogl_texture (texture_cache, border_image_source);
 
   if (node->border_slices_texture)
     node->border_slices_material = _st_create_texture_material (node->border_slices_texture);
@@ -1777,18 +1770,16 @@ st_theme_node_paint_sliced_border_image (StThemeNode           *node,
                                          const ClutterActorBox *box,
                                          guint8                 paint_opacity)
 {
-  gfloat ex, ey;
-  gfloat tx1, ty1, tx2, ty2;
-  gint border_left, border_right, border_top, border_bottom;
+  float ex, ey;
+  float tx1, ty1, tx2, ty2;
+  float border_left, border_right, border_top, border_bottom;
   float img_width, img_height;
-  StBorderImage *border_image;
   CoglHandle material;
 
-  border_image = st_theme_node_get_border_image (node);
-  g_assert (border_image != NULL);
-
-  st_border_image_get_borders (border_image,
-                               &border_left, &border_right, &border_top, &border_bottom);
+  border_left = node->border_image_slice[ST_SIDE_LEFT];
+  border_right = node->border_image_slice[ST_SIDE_RIGHT];
+  border_top = node->border_image_slice[ST_SIDE_TOP];
+  border_bottom = node->border_image_slice[ST_SIDE_BOTTOM];
 
   img_width = cogl_texture_get_width (node->border_slices_texture);
   img_height = cogl_texture_get_height (node->border_slices_texture);

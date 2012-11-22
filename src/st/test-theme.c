@@ -19,9 +19,9 @@
  */
 
 #include <clutter/clutter.h>
-#include "st-theme.h"
 #include "st-theme-context.h"
 #include "st-label.h"
+#include "st-theme-node-private.h"
 #include <math.h>
 #include <string.h>
 
@@ -67,8 +67,6 @@ text_decoration_to_string (StTextDecoration decoration)
     g_string_append(result, " overline");
   if (decoration & ST_TEXT_DECORATION_LINE_THROUGH)
     g_string_append(result, " line_through");
-  if (decoration & ST_TEXT_DECORATION_BLINK)
-    g_string_append(result, " blink");
 
   if (result->len > 0)
     g_string_erase (result, 0, 1);
@@ -173,18 +171,25 @@ assert_background_image (StThemeNode *node,
 			 const char  *node_description,
 			 const char  *expected)
 {
-  const char *value = st_theme_node_get_background_image (node);
+  GFile *file;
+  char *uri;
+
+  file = st_theme_node_get_background_image (node);
   if (expected == NULL)
     expected = "(null)";
-  if (value == NULL)
-    value = "(null)";
+  if (file == NULL)
+    uri = g_strdup ("(null)");
+  else
+    uri = g_file_get_uri (file);
 
-  if (strcmp (expected, value) != 0)
+  if (strcmp (expected, uri) != 0)
     {
       g_print ("%s: %s.background-image: expected: %s, got: %s\n",
-	       test, node_description, expected, value);
+	       test, node_description, expected, uri);
       fail = TRUE;
     }
+
+  g_free (uri);
 }
 
 #define LENGTH_EPSILON 0.001
@@ -420,47 +425,92 @@ test_inline_style (void)
                  st_theme_node_get_padding (text3, ST_SIDE_BOTTOM));
 }
 
+static GArray *
+parse_class_list (const gchar  *new_class_list)
+{
+  GArray *array;
+  gchar *cur;
+  gchar *l;
+  gchar *temp;
+
+  array = g_array_new (sizeof (GQuark), FALSE, FALSE);
+
+  if (new_class_list == NULL)
+    return array;
+
+  l = g_strdup (new_class_list);
+  cur = strtok_r (l, " \t\f\r\n", &temp);
+
+  while (cur != NULL)
+    {
+      GQuark q;
+
+      q = g_quark_from_string (l);
+      g_array_append_val (array, q);
+
+      cur = strtok_r (NULL, " \t\f\r\n", &temp);
+    }
+
+  g_free (l);
+  return array;
+}
+
 int
 main (int argc, char **argv)
 {
-  StTheme *theme;
+  GFile *theme_file;
+  StCascade *cascade;
   StThemeContext *context;
   PangoFontDescription *font_desc;
+  GArray *tmp;
 
   gtk_init (&argc, &argv);
 
   if (clutter_init (&argc, &argv) != CLUTTER_INIT_SUCCESS)
     return 1;
 
-  theme = st_theme_new ("st/test-theme.css",
-                        NULL, NULL);
-
   stage = clutter_stage_new ();
   context = st_theme_context_get_for_stage (CLUTTER_STAGE (stage));
-  st_theme_context_set_theme (context, theme);
+
+  cascade = st_theme_context_get_cascade (context);
+  theme_file = g_file_new_for_path ("st/test-theme.css");
+  st_cascade_load_theme (cascade, theme_file, NULL);
+  g_object_unref (theme_file);
 
   font_desc = pango_font_description_from_string ("sans-serif 12");
   st_theme_context_set_font (context, font_desc);
   pango_font_description_free (font_desc);
 
   root = st_theme_context_get_root_node (context);
-  group1 = st_theme_node_new (context, root, NULL,
-                              CLUTTER_TYPE_GROUP, "group1", NULL, NULL, NULL);
-  text1 = st_theme_node_new  (context, group1, NULL,
-                              CLUTTER_TYPE_TEXT, "text1", "special-text", NULL, NULL);
-  text2 = st_theme_node_new  (context, group1, NULL,
-                              CLUTTER_TYPE_TEXT, "text2", NULL, NULL, NULL);
-  group2 = st_theme_node_new (context, root, NULL,
-                              CLUTTER_TYPE_GROUP, "group2", NULL, NULL, NULL);
-  text3 = st_theme_node_new  (context, group2, NULL,
-                              CLUTTER_TYPE_TEXT, "text3", NULL, NULL,
+  group1 = st_theme_node_new (context, root, CLUTTER_TYPE_GROUP,
+                              "group1", NULL, NULL, NULL);
+
+  tmp = parse_class_list ("special-text");
+  text1 = st_theme_node_new  (context, group1, CLUTTER_TYPE_TEXT,
+                              "text1", tmp, NULL, NULL);
+  g_array_unref (tmp);
+
+  text2 = st_theme_node_new  (context, group1, CLUTTER_TYPE_TEXT,
+                              "text2", NULL, NULL, NULL);
+
+  group2 = st_theme_node_new (context, root, CLUTTER_TYPE_GROUP,
+                              "group2", NULL, NULL, NULL);
+  text3 = st_theme_node_new  (context, group2, CLUTTER_TYPE_TEXT,
+                              "text3", NULL, NULL,
                               "color: #0000ff; padding-bottom: 12px;");
-  text4 = st_theme_node_new  (context, group2, NULL,
-                              CLUTTER_TYPE_TEXT, "text4", NULL, "visited hover", NULL);
-  group3 = st_theme_node_new (context, group2, NULL,
-                              CLUTTER_TYPE_GROUP, "group3", NULL, "hover", NULL);
-  cairo_texture = st_theme_node_new (context, root, NULL,
-                                     CLUTTER_TYPE_CAIRO_TEXTURE, "cairoTexture", NULL, NULL, NULL);
+
+  tmp = parse_class_list ("visited hover");
+  text4 = st_theme_node_new  (context, group2, CLUTTER_TYPE_TEXT,
+                              "text4", NULL, tmp, NULL);
+  g_array_unref (tmp);
+
+  tmp = parse_class_list ("hover");
+  group3 = st_theme_node_new (context, group2, CLUTTER_TYPE_GROUP,
+                              "group3", NULL, tmp, NULL);
+  g_array_unref (tmp);
+
+  cairo_texture = st_theme_node_new (context, root, CLUTTER_TYPE_CAIRO_TEXTURE,
+                                     "cairoTexture", NULL, NULL, NULL);
 
   test_defaults ();
   test_lengths ();
@@ -482,7 +532,6 @@ main (int argc, char **argv)
   g_object_unref (text2);
   g_object_unref (text3);
   g_object_unref (text4);
-  g_object_unref (theme);
 
   clutter_actor_destroy (stage);
 

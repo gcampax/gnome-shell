@@ -72,12 +72,12 @@ typedef enum {
     ST_CORNER_BOTTOMLEFT
 } StCorner;
 
-/* These are the CSS values; that doesn't mean we have to implement blink... */
 typedef enum {
-    ST_TEXT_DECORATION_UNDERLINE    = 1 << 0,
-    ST_TEXT_DECORATION_OVERLINE     = 1 << 1,
-    ST_TEXT_DECORATION_LINE_THROUGH = 1 << 2,
-    ST_TEXT_DECORATION_BLINK        = 1 << 3
+  ST_TEXT_DECORATION_NONE         = 0,
+  ST_TEXT_DECORATION_UNDERLINE    = 1 << 0,
+  ST_TEXT_DECORATION_OVERLINE     = 1 << 1,
+  ST_TEXT_DECORATION_LINE_THROUGH = 1 << 2,
+  ST_TEXT_DECORATION_MASK         = (1 << 3) - 1
 } StTextDecoration;
 
 typedef enum {
@@ -96,26 +96,10 @@ typedef enum {
 
 GType st_theme_node_get_type (void) G_GNUC_CONST;
 
-StThemeNode *st_theme_node_new (StThemeContext *context,
-                                StThemeNode    *parent_node,   /* can be null */
-                                StTheme        *theme,         /* can be null */
-                                GType           element_type,
-                                const char     *element_id,
-                                const char     *element_class,
-                                const char     *pseudo_class,
-                                const char     *inline_style);
-
 StThemeNode *st_theme_node_get_parent (StThemeNode *node);
-
-StTheme *st_theme_node_get_theme (StThemeNode *node);
 
 gboolean    st_theme_node_equal (StThemeNode *node_a, StThemeNode *node_b);
 guint       st_theme_node_hash  (StThemeNode *node);
-
-GType       st_theme_node_get_element_type  (StThemeNode *node);
-const char *st_theme_node_get_element_id    (StThemeNode *node);
-GStrv       st_theme_node_get_element_classes (StThemeNode *node);
-GStrv       st_theme_node_get_pseudo_classes (StThemeNode *node);
 
 /* Generic getters ... these are not cached so are less efficient. The other
  * reason for adding the more specific version is that we can handle the
@@ -133,7 +117,7 @@ gboolean st_theme_node_lookup_double (StThemeNode  *node,
 gboolean st_theme_node_lookup_length (StThemeNode *node,
                                       const char  *property_name,
                                       gboolean     inherit,
-                                      gdouble     *length);
+                                      float       *length);
 gboolean st_theme_node_lookup_shadow (StThemeNode  *node,
                                       const char   *property_name,
                                       gboolean      inherit,
@@ -145,7 +129,7 @@ void          st_theme_node_get_color  (StThemeNode  *node,
                                         ClutterColor *color);
 gdouble       st_theme_node_get_double (StThemeNode  *node,
                                         const char   *property_name);
-gdouble       st_theme_node_get_length (StThemeNode  *node,
+float         st_theme_node_get_length (StThemeNode  *node,
                                         const char   *property_name);
 StShadow     *st_theme_node_get_shadow (StThemeNode  *node,
                                         const char   *property_name);
@@ -161,32 +145,32 @@ void st_theme_node_get_background_gradient (StThemeNode   *node,
                                             ClutterColor   *start,
                                             ClutterColor   *end);
 
-const char *st_theme_node_get_background_image (StThemeNode *node);
+GFile *st_theme_node_get_background_image (StThemeNode *node);
 
-int    st_theme_node_get_border_width  (StThemeNode  *node,
+float  st_theme_node_get_border_width  (StThemeNode  *node,
                                         StSide        side);
-int    st_theme_node_get_border_radius (StThemeNode  *node,
+float  st_theme_node_get_border_radius (StThemeNode  *node,
                                         StCorner      corner);
 void   st_theme_node_get_border_color  (StThemeNode  *node,
                                         StSide        side,
                                         ClutterColor *color);
 
-int    st_theme_node_get_outline_width (StThemeNode  *node);
+float  st_theme_node_get_outline_width (StThemeNode  *node);
 void   st_theme_node_get_outline_color (StThemeNode  *node,
                                         ClutterColor *color);
 
-double st_theme_node_get_padding       (StThemeNode  *node,
+float  st_theme_node_get_padding       (StThemeNode  *node,
                                         StSide        side);
 
-double st_theme_node_get_horizontal_padding (StThemeNode *node);
-double st_theme_node_get_vertical_padding   (StThemeNode *node);
+float  st_theme_node_get_horizontal_padding (StThemeNode *node);
+float  st_theme_node_get_vertical_padding   (StThemeNode *node);
 
-int    st_theme_node_get_width         (StThemeNode  *node);
-int    st_theme_node_get_height        (StThemeNode  *node);
-int    st_theme_node_get_min_width     (StThemeNode  *node);
-int    st_theme_node_get_min_height    (StThemeNode  *node);
-int    st_theme_node_get_max_width     (StThemeNode  *node);
-int    st_theme_node_get_max_height    (StThemeNode  *node);
+float  st_theme_node_get_width         (StThemeNode  *node);
+float  st_theme_node_get_height        (StThemeNode  *node);
+float  st_theme_node_get_min_width     (StThemeNode  *node);
+float  st_theme_node_get_min_height    (StThemeNode  *node);
+float  st_theme_node_get_max_width     (StThemeNode  *node);
+float  st_theme_node_get_max_height    (StThemeNode  *node);
 
 int    st_theme_node_get_transition_duration (StThemeNode *node);
 
@@ -201,7 +185,10 @@ StTextAlign st_theme_node_get_text_align (StThemeNode *node);
  */
 const PangoFontDescription *st_theme_node_get_font (StThemeNode *node);
 
-StBorderImage *st_theme_node_get_border_image (StThemeNode *node);
+GFile         *st_theme_node_get_border_image_source (StThemeNode *node);
+float          st_theme_node_get_border_image_slice  (StThemeNode *node,
+                                                      StSide       side);
+
 StShadow      *st_theme_node_get_box_shadow   (StThemeNode *node);
 StShadow      *st_theme_node_get_text_shadow  (StThemeNode *node);
 

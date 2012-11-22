@@ -46,21 +46,23 @@ typedef struct _StShadowHelper StShadowHelper;
  */
 struct _StShadow {
     ClutterColor color;
-    gdouble      xoffset;
-    gdouble      yoffset;
-    gdouble      blur;
-    gdouble      spread;
-    gboolean     inset;
+    float        xoffset;
+    float        yoffset;
+    float        blur;
+    float        spread;
+    float        inset;
     volatile int ref_count;
 };
 
 GType     st_shadow_get_type (void) G_GNUC_CONST;
 
+StShadow *st_shadow_new_empty (void);
+
 StShadow *st_shadow_new      (ClutterColor   *color,
-                              gdouble         xoffset,
-                              gdouble         yoffset,
-                              gdouble         blur,
-                              gdouble         spread,
+                              float           xoffset,
+                              float           yoffset,
+                              float           blur,
+                              float           spread,
                               gboolean        inset);
 StShadow *st_shadow_ref      (StShadow       *shadow);
 void      st_shadow_unref    (StShadow       *shadow);

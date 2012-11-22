@@ -26,6 +26,7 @@
 
 #include "st-theme-node.h"
 #include "st-types.h"
+#include "st-css-private.h"
 
 G_BEGIN_DECLS
 
@@ -34,7 +35,7 @@ struct _StThemeNode {
 
   StThemeContext *context;
   StThemeNode *parent_node;
-  StTheme *theme;
+  StCascade *cascade;
 
   PangoFontDescription *font_desc;
 
@@ -43,46 +44,53 @@ struct _StThemeNode {
   StGradientType background_gradient_type;
   ClutterColor background_gradient_end;
 
-  int background_position_x;
-  int background_position_y;
+  float background_position_x;
+  float background_position_y;
 
   StBackgroundSize background_size;
-  gint background_size_w;
-  gint background_size_h;
+  float background_size_w;
+  float background_size_h;
 
   ClutterColor foreground_color;
   ClutterColor border_color[4];
   ClutterColor outline_color;
+  ClutterColor warning_color;
+  ClutterColor error_color;
+  ClutterColor success_color;
 
-  int border_width[4];
-  int border_radius[4];
-  int outline_width;
-  guint padding[4];
+  float border_width[4];
+  float border_radius[4];
+  float outline_width;
+  float padding[4];
 
-  int width;
-  int height;
-  int min_width;
-  int min_height;
-  int max_width;
-  int max_height;
+  float width;
+  float height;
+  float min_width;
+  float min_height;
+  float max_width;
+  float max_height;
 
   int transition_duration;
 
-  char *background_image;
-  StBorderImage *border_image;
+  GFile  *background_image;
+  GFile  *border_image_source;
+  float   border_image_slice[4];
+
   StShadow *box_shadow;
   StShadow *background_image_shadow;
   StShadow *text_shadow;
   StIconColors *icon_colors;
 
-  GType element_type;
-  char *element_id;
-  GStrv element_classes;
-  GStrv pseudo_classes;
+  StTextDecoration text_decoration;
+  StTextAlign text_align;
+
+  GType   element_type;
+  GQuark  element_id;
+  GArray *element_classes;
+  GArray *pseudo_classes;
   char *inline_style;
 
-  CRDeclaration **properties;
-  int n_properties;
+  GHashTable *custom_properties;
 
   /* We hold onto these separately so we can destroy them on finalize */
   CRDeclaration *inline_properties;
@@ -93,7 +101,6 @@ struct _StThemeNode {
   guint properties_computed : 1;
   guint geometry_computed : 1;
   guint background_computed : 1;
-  guint foreground_computed : 1;
   guint border_image_computed : 1;
   guint box_shadow_computed : 1;
   guint background_image_shadow_computed : 1;
@@ -120,11 +127,22 @@ struct _StThemeNodeClass {
 
 };
 
-void _st_theme_node_ensure_background (StThemeNode *node);
-void _st_theme_node_ensure_geometry (StThemeNode *node);
+StThemeNode *st_theme_node_new (StThemeContext *context,
+                                StThemeNode    *parent_node,
+                                GType           element_type,
+                                const char     *element_id,
+                                GArray         *element_classes,
+                                GArray         *element_pseudo_classes,
+                                const char     *inline_style);
+
+void _st_theme_node_ensure_computed (StThemeNode *node);
 
 void _st_theme_node_init_drawing_state (StThemeNode *node);
 void _st_theme_node_free_drawing_state (StThemeNode *node);
+
+gboolean _st_theme_node_has_id     (StThemeNode *node, GQuark id);
+gboolean _st_theme_node_has_class  (StThemeNode *node, GQuark class);
+gboolean _st_theme_node_has_pseudo (StThemeNode *node, GQuark pseudo);
 
 G_END_DECLS
 

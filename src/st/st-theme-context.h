@@ -25,6 +25,7 @@
 #include <clutter/clutter.h>
 #include <pango/pango.h>
 #include "st-theme-node.h"
+#include "st-css.h"
 
 G_BEGIN_DECLS
 
@@ -52,10 +53,6 @@ GType st_theme_context_get_type (void) G_GNUC_CONST;
 StThemeContext *st_theme_context_new           (void);
 StThemeContext *st_theme_context_get_for_stage (ClutterStage *stage);
 
-void                        st_theme_context_set_theme      (StThemeContext             *context,
-                                                             StTheme                    *theme);
-StTheme *                   st_theme_context_get_theme      (StThemeContext             *context);
-
 void                        st_theme_context_set_font       (StThemeContext             *context,
                                                              const PangoFontDescription *font);
 const PangoFontDescription *st_theme_context_get_font       (StThemeContext             *context);
@@ -64,6 +61,8 @@ StThemeNode *               st_theme_context_get_root_node  (StThemeContext     
 
 StThemeNode *               st_theme_context_intern_node    (StThemeContext             *context,
                                                              StThemeNode                *node);
+
+StCascade *                 st_theme_context_get_cascade    (StThemeContext             *context);
 
 G_END_DECLS
 
