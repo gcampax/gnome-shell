@@ -5,11 +5,41 @@ const Lang = imports.lang;
 const Meta = imports.gi.Meta;
 const Signals = imports.signals;
 const St = imports.gi.St;
+const Shell = imports.gi.Shell;
 
 const Params = imports.misc.params;
 const Tweener = imports.ui.tweener;
 
 const DEFAULT_FADE_FACTOR = 0.4;
+
+const GLSL_DIM_EFFECT_DECLARATIONS = '\
+float compute_dim_factor (const vec2 coords) {\
+   vec2 dist = coords - vec2(0.5, 0.5); \
+   float elipse_radius = 0.5; \
+   /* from https://bugzilla.gnome.org/show_bug.cgi?id=669798: \
+      the alpha on the gradient goes from 250 at its darkest to 180 at its most transparent. */ \
+   float y = 250.0 / 255.0; \
+   float x = 180.0 / 255.0; \
+   /* interpolate darkening value, based on distance from screen center */ \
+   float val = min(length(dist), elipse_radius); \
+   return mix(x, y, val / elipse_radius); \
+}';
+const GLSL_DIM_EFFECT_CODE = '\
+   float a = compute_dim_factor (cogl_tex_coord_in[0].xy);\
+   cogl_color_out.a = cogl_color_out.a * a;'
+;
+
+const RadialShaderEffect = new Lang.Class({
+    Name: 'RadialShaderEffect',
+    Extends: Shell.ShaderEffect,
+
+    vfunc_build_pipeline: function() {
+        this.add_glsl_snippet(Shell.SnippetHook.FRAGMENT,
+                              GLSL_DIM_EFFECT_DECLARATIONS,
+                              GLSL_DIM_EFFECT_CODE,
+                              false);
+    },
+});
 
 /**
  * Lightbox:
@@ -42,9 +72,10 @@ const Lightbox = new Lang.Class({
         params = Params.parse(params, { inhibitEvents: false,
                                         width: null,
                                         height: null,
-                                        fadeInTime: null,
-                                        fadeOutTime: null,
-                                        fadeFactor: DEFAULT_FADE_FACTOR
+                                        fadeInTime: 0,
+                                        fadeOutTime: 0,
+                                        fadeFactor: DEFAULT_FADE_FACTOR,
+                                        radialEffect: false,
                                       });
 
         this._container = container;
@@ -56,6 +87,8 @@ const Lightbox = new Lang.Class({
                                   y: 0,
                                   style_class: 'lightbox',
                                   reactive: params.inhibitEvents });
+        if (params.radialEffect)
+            this.actor.add_effect(new RadialShaderEffect());
 
         container.add_actor(this.actor);
         this.actor.raise_top();
