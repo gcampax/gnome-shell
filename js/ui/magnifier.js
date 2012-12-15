@@ -7,6 +7,7 @@ const Shell = imports.gi.Shell;
 const St = imports.gi.St;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
+const Meta = imports.gi.Meta;
 const Signals = imports.signals;
 
 const Main = imports.ui.main;
@@ -44,6 +45,29 @@ const CROSS_HAIRS_LENGTH_KEY    = 'cross-hairs-length';
 const CROSS_HAIRS_CLIP_KEY      = 'cross-hairs-clip';
 
 let magDBusService = null;
+
+const GLSL_INVERT_LIGHTNESS_EFFECT_DECLARATIONS = '';
+const GLSL_INVERT_LIGHTNESS_EFFECT_CODE = '\
+    vec3 effect = vec3 (cogl_color_out);\n\
+    \n\
+    float maxColor = max (cogl_color_out.r, max (cogl_color_out.g, cogl_color_out.b));\n\
+    float minColor = min (cogl_color_out.r, min (cogl_color_out.g, cogl_color_out.b));\n\
+    float lightness = (maxColor + minColor) / 2.0;\n\
+    \n\
+    float delta = (1.0 - lightness) - lightness;\n\
+    cogl_color_out.rgb = cogl_color_out.rgb + delta;';
+
+const InvertLightnessEffect = new Lang.Class({
+    Name: 'InvertLightnessEffect',
+    Extends: Shell.ShaderEffect,
+
+    vfunc_build_pipeline: function() {
+        this.add_glsl_snippet(Shell.SnippetHook.FRAGMENT,
+                              GLSL_INVERT_LIGHTNESS_EFFECT_DECLARATIONS,
+                              GLSL_INVERT_LIGHTNESS_EFFECT_CODE,
+                              false);
+    },
+});
 
 const Magnifier = new Lang.Class({
     Name: 'Magnifier',
@@ -1632,7 +1656,7 @@ const MagShaderEffects = new Lang.Class({
     Name: 'MagShaderEffects',
 
     _init: function(uiGroupClone) {
-        this._inverse = new Shell.InvertLightnessEffect();
+        this._inverse = new InvertLightnessEffect();
         this._brightnessContrast = new Clutter.BrightnessContrastEffect();
         this._colorDesaturation = new Clutter.DesaturateEffect();
         this._inverse.set_enabled(false);
