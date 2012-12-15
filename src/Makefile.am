@@ -119,6 +119,7 @@ shell_public_headers_h =		\
 	shell-network-agent.h		\
 	shell-perf-log.h		\
 	shell-screenshot.h		\
+	shell-shader-effect.h		\
 	shell-slicer.h			\
 	shell-stack.h			\
 	shell-tp-client.h		\
@@ -160,6 +161,7 @@ libgnome_shell_la_SOURCES =		\
 	shell-generic-container.c	\
 	shell-gtk-embed.c		\
 	shell-global.c			\
+	shell-shader-effect.c		\
 	shell-invert-lightness-effect.c	\
 	shell-keyring-prompt.h		\
 	shell-keyring-prompt.c		\
