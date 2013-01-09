@@ -123,6 +123,7 @@ const ShellUserVerifier = new Lang.Class({
 
         this._settings = new Gio.Settings({ schema: LOGIN_SCREEN_SCHEMA });
 
+        this._hasFingerprintHint = false;
         this._fprintManager = new Fprint.FprintManager();
         this._messageQueue = [];
         this._messageQueueTimeoutId = 0;
@@ -301,6 +302,7 @@ const ShellUserVerifier = new Lang.Class({
         this._userVerifier.connect('conversation-stopped', Lang.bind(this, this._onConversationStopped));
         this._userVerifier.connect('reset', Lang.bind(this, this._onReset));
         this._userVerifier.connect('verification-complete', Lang.bind(this, this._onVerificationComplete));
+        this._userVerifier.connect('service-unavailable', Lang.bind(this, this._onServiceUnavailable));
     },
 
     _beginVerification: function() {
@@ -367,6 +369,7 @@ const ShellUserVerifier = new Lang.Class({
         if (serviceName == FINGERPRINT_SERVICE_NAME &&
             this._haveFingerprintReader) {
 
+            this._hasFingerprintHint = true;
             // Translators: this message is shown below the password entry field
             // to indicate the user can swipe their finger instead
             this.emit('show-login-hint', _("(or swipe finger)"));
@@ -376,10 +379,6 @@ const ShellUserVerifier = new Lang.Class({
     },
 
     _onProblem: function(client, serviceName, problem) {
-        // we don't want to show auth failed messages to
-        // users who haven't enrolled their fingerprint.
-        if (serviceName != PASSWORD_SERVICE_NAME)
-            return;
         this._queueMessage(problem, 'login-dialog-message-warning');
     },
 
@@ -402,6 +401,7 @@ const ShellUserVerifier = new Lang.Class({
     _onReset: function() {
         // Clear previous attempts to authenticate
         this._failCounter = 0;
+        this._hasFingerprintHint = false;
 
         this.emit('reset');
     },
@@ -462,7 +462,20 @@ const ShellUserVerifier = new Lang.Class({
             this._verificationFailed(true);
         }
 
+        if (serviceName == FINGERPRINT_SERVICE_NAME &&
+            this._hasFingerprintHint) {
+            this._hasFingerprintHint = false;
+        }
+
         this.emit('hide-login-hint');
+    },
+
+    _onServiceUnavailable: function(client, serviceName) {
+        if (serviceName == FINGERPRINT_SERVICE_NAME &&
+            this._hasFingerprintHint) {
+            this._hasFingerprintHint = false;
+            this.emit('hide-login-hint');
+        }
     },
 });
 Signals.addSignalMethods(ShellUserVerifier.prototype);
