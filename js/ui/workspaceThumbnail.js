@@ -137,8 +137,14 @@ const WindowClone = new Lang.Class({
         let actualAbove = this.getActualStackAbove();
         if (actualAbove == null)
             this.actor.lower_bottom();
-        else
+        else {
+            if (this.actor.get_parent() != actualAbove.get_parent()) {
+                logError(Error(), this.actor +  ' and ' + actualAbove + ' are not in the same container, they are in ' + this.actor.get_parent() + ' and ' + actualAbove.get_parent());
+                return;
+            }
+
             this.actor.raise(actualAbove);
+        }
     },
 
     destroy: function () {
