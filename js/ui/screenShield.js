@@ -945,8 +945,6 @@ const ScreenShield = new Lang.Class({
             return;
 
         this._ensureLockScreen();
-        this._lockDialogGroup.scale_x = 1;
-        this._lockDialogGroup.scale_y = 1;
 
         this._lockScreenGroup.show();
         this._lockScreenState = MessageTray.State.SHOWING;
@@ -1146,8 +1144,7 @@ const ScreenShield = new Lang.Class({
         }
 
         Tweener.addTween(this._lockDialogGroup, {
-            scale_x: 0,
-            scale_y: 0,
+            opacity: 0,
             time: animate ? Overview.ANIMATION_TIME : 0,
             transition: 'easeOutQuad',
             onComplete: Lang.bind(this, this._completeDeactivate),
