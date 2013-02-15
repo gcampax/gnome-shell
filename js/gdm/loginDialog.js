@@ -542,6 +542,8 @@ const LoginDialog = new Lang.Class({
         this._userVerifier.connect('reset', Lang.bind(this, this._reset));
         this._userVerifier.connect('show-login-hint', Lang.bind(this, this._showLoginHint));
         this._userVerifier.connect('hide-login-hint', Lang.bind(this, this._hideLoginHint));
+        this._userVerifier.connect('show-pin-pad', Lang.bind(this, this._showPinPad));
+        this._userVerifier.connect('hide-pin-pad', Lang.bind(this, this._hidePinPad));
         this._verifyingUser = false;
 
         this._settings = new Gio.Settings({ schema: GdmUtil.LOGIN_SCREEN_SCHEMA });
@@ -599,6 +601,10 @@ const LoginDialog = new Lang.Class({
                               x_fill: true,
                               y_fill: false,
                               x_align: St.Align.START });
+
+        this._promptPinPad = new GdmUtil.PinPadWidget(this._promptEntry);
+        this._promptPinPad.actor.hide();
+        this._promptBox.add(this._promptPinPad.actor);
 
         this._promptMessage = new St.Label({ visible: false });
         this._promptBox.add(this._promptMessage, { x_fill: true });
@@ -731,6 +737,14 @@ const LoginDialog = new Lang.Class({
     _hideLoginHint: function() {
         this._promptLoginHint.hide();
         this._promptLoginHint.set_text('');
+    },
+
+    _showPinPad: function() {
+        GdmUtil.fadeInActor(this._promptPinPad.actor);
+    },
+
+    _hidePinPad: function() {
+        GdmUtil.fadeOutActor(this._promptPinPad.actor);
     },
 
     cancel: function() {

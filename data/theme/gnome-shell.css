@@ -2525,3 +2525,32 @@ StScrollBar StButton#vhandle:active {
 .background-menu {
     -boxpointer-gap: 4px;
 }
+
+/* PIN pad */
+.pin-pad {
+    spacing-rows: 5px;
+    spacing-columns: 5px;
+}
+
+.pin-pad-key {
+    min-height: 30px;
+    min-width: 30px;
+    background-gradient-start: rgba(255,245,245,0.4);
+    background-gradient-end: rgba(105,105,105,0.1);
+    background-gradient-direction: vertical;
+    font-size: 14pt;
+    font-weight: bold;
+    border-radius: 10px;
+    border: 2px solid #a0a0a0;
+    color: white;
+}
+
+.pin-pad-key:checked,
+.pin-pad-key:hover {
+    background: #303030;
+    border: 2px solid white;
+}
+
+.pin-pad-key:active {
+    background: #808080;
+}

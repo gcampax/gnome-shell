@@ -5,6 +5,7 @@ const Gio = imports.gi.Gio;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
 const Signals = imports.signals;
+const St = imports.gi.St;
 
 const Batch = imports.gdm.batch;
 const Fprint = imports.gdm.fingerprint;
@@ -342,6 +343,14 @@ const ShellUserVerifier = new Lang.Class({
         if (serviceName != PASSWORD_SERVICE_NAME)
             return;
 
+        // Special untranslated marker from pam_pin.so
+        if (secretQuestion == 'PIN') {
+            this.emit('show-pin-pad');
+            secretQuestion = _("PIN:");
+        } else {
+            this.emit('hide-pin-pad');
+        }
+
         this.emit('ask-question', serviceName, secretQuestion, '\u25cf');
     },
 
@@ -413,3 +422,34 @@ const ShellUserVerifier = new Lang.Class({
     },
 });
 Signals.addSignalMethods(ShellUserVerifier.prototype);
+
+const PinPadWidget = new Lang.Class({
+    Name: 'PinPadWidget',
+
+    _init: function(entry) {
+        this._entry = entry;
+
+        this.actor = new St.Table({ style_class: 'pin-pad' });
+
+        this.actor.add(this._makeButton(0), { col: 1, row: 3 });
+
+        for (let i = 1; i <= 9; i++) {
+            this.actor.add(this._makeButton(i),
+                            { col: ((i-1) % 3),
+                              row: Math.floor((i-1) / 3)
+                            });
+        }
+    },
+
+    _makeButton: function(num) {
+        let numStr = String(num);
+        let button = new St.Button({ label: numStr,
+                                     style_class: 'pin-pad-key' });
+
+        button.connect('clicked', Lang.bind(this, function() {
+            this._entry.clutter_text.insert_unichar(numStr);
+        }));
+
+        return button;
+    }
+});

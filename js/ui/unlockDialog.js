@@ -85,6 +85,8 @@ const UnlockDialog = new Lang.Class({
 
         this._userVerifier.connect('show-login-hint', Lang.bind(this, this._showLoginHint));
         this._userVerifier.connect('hide-login-hint', Lang.bind(this, this._hideLoginHint));
+        this._userVerifier.connect('show-pin-pad', Lang.bind(this, this._showPinPad));
+        this._userVerifier.connect('hide-pin-pad', Lang.bind(this, this._hidePinPad));
 
         this._userWidget = new UserWidget.UserWidget(this._user);
         this.contentLayout.add_actor(this._userWidget.actor);
@@ -110,6 +112,10 @@ const UnlockDialog = new Lang.Class({
                                  x_fill: true });
 
         this.contentLayout.add_actor(this._promptLayout);
+
+        this._promptPinPad = new GdmUtil.PinPadWidget(this._promptEntry);
+        this._promptPinPad.actor.hide();
+        this.contentLayout.add(this._promptPinPad.actor);
 
         this._promptMessage = new St.Label({ visible: false });
         this.contentLayout.add(this._promptMessage, { x_fill: true });
@@ -257,6 +263,14 @@ const UnlockDialog = new Lang.Class({
 
     _hideLoginHint: function() {
         GdmUtil.fadeOutActor(this._promptLoginHint);
+    },
+
+    _showPinPad: function() {
+        GdmUtil.fadeInActor(this._promptPinPad.actor);
+    },
+
+    _hidePinPad: function() {
+        GdmUtil.fadeOutActor(this._promptPinPad.actor);
     },
 
     _doUnlock: function() {
