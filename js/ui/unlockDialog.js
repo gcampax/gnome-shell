@@ -124,6 +124,13 @@ const UnlockDialog = new Lang.Class({
         this._promptLoginHint.hide();
         this.contentLayout.add_actor(this._promptLoginHint);
 
+        this._conversationChooser = new GdmUtil.ConversationChooser(this._userVerifier);
+        this.contentLayout.add(this._conversationChooser.actor,
+                               { expand: false,
+                                 x_fill: false,
+                                 y_fill: false,
+                                 x_align: St.Align.START });
+
         this._workSpinner = new Panel.AnimatedIcon('process-working.svg', LoginDialog.WORK_SPINNER_ICON_SIZE);
         this._workSpinner.actor.opacity = 0;
 
@@ -233,7 +240,22 @@ const UnlockDialog = new Lang.Class({
         }
     },
 
+    _resetFirstQuestion: function() {
+        this._currentQuery = null;
+        this._firstQuestion = true;
+
+        this._promptEntry.text = '';
+        this._promptEntry.clutter_text.set_password_char('\u25cf');
+        this._promptEntry.menu.isPassword = true;
+    },
+
     _onAskQuestion: function(verifier, serviceName, question, passwordChar) {
+        if (question == null) {
+            // Reset as if we are asking the first question
+            this._resetFirstQuestion();
+            return;
+        }
+
         if (this._firstQuestion && this._firstQuestionAnswer) {
             this._userVerifier.answerQuery(serviceName, this._firstQuestionAnswer);
             this._firstQuestionAnswer = null;
@@ -306,12 +328,7 @@ const UnlockDialog = new Lang.Class({
     },
 
     _onVerificationFailed: function() {
-        this._currentQuery = null;
-        this._firstQuestion = true;
-
-        this._promptEntry.text = '';
-        this._promptEntry.clutter_text.set_password_char('\u25cf');
-        this._promptEntry.menu.isPassword = true;
+        this._resetFirstQuestion();
 
         this._updateSensitivity(false);
         this._setWorking(false);

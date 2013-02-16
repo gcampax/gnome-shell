@@ -627,6 +627,14 @@ const LoginDialog = new Lang.Class({
                               x_fill: false,
                               y_fill: true,
                               x_align: St.Align.START });
+
+        this._conversationChooser = new GdmUtil.ConversationChooser(this._userVerifier);
+        this._promptBox.add(this._conversationChooser.actor,
+                            { expand: false,
+                              x_fill: false,
+                              y_fill: false,
+                              x_align: St.Align.START });
+
         this._promptBox.hide();
 
         // translators: this message is shown below the user list on the
@@ -893,6 +901,15 @@ const LoginDialog = new Lang.Class({
     },
 
     _askQuestion: function(verifier, serviceName, question, passwordChar) {
+        if (question == null) {
+            // Mark that we're waiting for a question from PAM
+            // (this happens if you switch with the buttons)
+            this._promptLabel.set_text('');
+            this._updateSensitivity(false);
+            this._setWorking(true);
+            return;
+        }
+
         this._promptLabel.set_text(question);
 
         this._updateSensitivity(true);
@@ -911,7 +928,7 @@ const LoginDialog = new Lang.Class({
                      }];
 
         let batch = new Batch.ConsecutiveBatch(this, tasks);
-        return batch.run();
+        batch.run();
     },
 
     _askForUsernameAndLogIn: function() {

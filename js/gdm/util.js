@@ -16,6 +16,7 @@ const Tweener = imports.ui.tweener;
 
 const PASSWORD_SERVICE_NAME = 'gdm-password';
 const FINGERPRINT_SERVICE_NAME = 'gdm-fingerprint';
+const PIN_SERVICE_NAME = 'gdm-pin';
 const FADE_ANIMATION_TIME = 0.16;
 const CLONE_FADE_ANIMATION_TIME = 0.25;
 
@@ -118,6 +119,13 @@ const ShellUserVerifier = new Lang.Class({
         this._realmManager = new Realmd.Manager();
 
         this._failCounter = 0;
+
+        // Always start with PIN, we will go back to password
+        // automatically if not configured
+        this._pinAvailable = true;
+        this._currentService = PIN_SERVICE_NAME;
+        this._currentMessage = { };
+        this._currentQuery = { };
     },
 
     begin: function(userName, hold) {
@@ -155,6 +163,11 @@ const ShellUserVerifier = new Lang.Class({
             this._userVerifier.run_dispose();
             this._userVerifier = null;
         }
+
+        this._pinAvailable = true;
+        this._currentService = PIN_SERVICE_NAME;
+        this._currentQuery = {};
+        this._currentMessage = {};
     },
 
     answerQuery: function(serviceName, answer) {
@@ -162,6 +175,8 @@ const ShellUserVerifier = new Lang.Class({
         this.emit('show-message', null, null);
 
         this._userVerifier.call_answer_query(serviceName, answer, this._cancellable, null);
+
+        delete this._currentQuery[serviceName];
     },
 
     _checkForFingerprintReader: function() {
@@ -182,7 +197,7 @@ const ShellUserVerifier = new Lang.Class({
         this._hold.release();
 
         this.emit('show-message', _("Authentication error"), 'login-dialog-message-warning');
-        this._verificationFailed(false);
+        this._failed(false);
     },
 
     _reauthenticationChannelOpened: function(client, result) {
@@ -227,52 +242,47 @@ const ShellUserVerifier = new Lang.Class({
         this._userVerifier.connect('problem', Lang.bind(this, this._onProblem));
         this._userVerifier.connect('info-query', Lang.bind(this, this._onInfoQuery));
         this._userVerifier.connect('secret-info-query', Lang.bind(this, this._onSecretInfoQuery));
-        this._userVerifier.connect('conversation-stopped', Lang.bind(this, this._onConversationStopped));
         this._userVerifier.connect('reset', Lang.bind(this, this._onReset));
         this._userVerifier.connect('verification-complete', Lang.bind(this, this._onVerificationComplete));
+        this._userVerifier.connect('verification-failed', Lang.bind(this, this._onVerificationFailed));
+        this._userVerifier.connect('conversation-stopped', Lang.bind(this, this._onConversationStopped));
         this._userVerifier.connect('service-unavailable', Lang.bind(this, this._onServiceUnavailable));
     },
 
-    _beginVerification: function() {
+    _beginVerificationForService: function(serviceName) {
         this._hold.acquire();
 
-        if (this._userName) {
-            this._userVerifier.call_begin_verification_for_user(PASSWORD_SERVICE_NAME,
-                                                                this._userName,
-                                                                this._cancellable,
-                                                                Lang.bind(this, function(obj, result) {
+        this._userVerifier.call_begin_verification_for_user(serviceName,
+                                                            this._userName,
+                                                            this._cancellable,
+                                                            Lang.bind(this, function(obj, result) {
                 try {
                     obj.call_begin_verification_for_user_finish(result);
                 } catch(e if e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
                     return;
                 } catch(e) {
-                    this._reportInitError('Failed to start verification for user', e);
+                    this._reportInitError('Failed to start %s verification for user'.format(serviceName), e);
                     return;
                 }
 
                 this._hold.release();
-            }));
+        }));
+    },
 
-            if (this._haveFingerprintReader) {
-                this._hold.acquire();
+    _beginVerification: function() {
+        if (this._userName) {
+            if (this._pinAvailable)
+                this._beginVerificationForService(PIN_SERVICE_NAME);
+            this._beginVerificationForService(PASSWORD_SERVICE_NAME);
 
-                this._userVerifier.call_begin_verification_for_user(FINGERPRINT_SERVICE_NAME,
-                                                                    this._userName,
-                                                                    this._cancellable,
-                                                                    Lang.bind(this, function(obj, result) {
-                    try {
-                        obj.call_begin_verification_for_user_finish(result);
-                    } catch(e if e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
-                        return;
-                    } catch(e) {
-                        this._reportInitError('Failed to start fingerprint verification for user', e);
-                        return;
-                    }
+            if (this._haveFingerprintReader)
+                this._beginVerificationForService(FINGERPRINT_SERVICE_NAME);
 
-                    this._hold.release();
-                }));
-            }
+            if (this._pinAvailable)
+                this.emit('show-conversation-chooser');
         } else {
+            this._hold.acquire();
+
             this._userVerifier.call_begin_verification(PASSWORD_SERVICE_NAME,
                                                        this._cancellable,
                                                        Lang.bind(this, function(obj, result) {
@@ -287,6 +297,8 @@ const ShellUserVerifier = new Lang.Class({
 
                 this._hold.release();
             }));
+
+            this.emit('hide-conversation-chooser');
         }
     },
 
@@ -301,13 +313,20 @@ const ShellUserVerifier = new Lang.Class({
             // Translators: this message is shown below the password entry field
             // to indicate the user can swipe their finger instead
             this.emit('show-login-hint', _("(or swipe finger)"));
-        } else if (serviceName == PASSWORD_SERVICE_NAME) {
-            this.emit('show-message', info, 'login-dialog-message-info');
+        } else if (serviceName == PASSWORD_SERVICE_NAME ||
+                   serviceName == PIN_SERVICE_NAME) {
+            this._currentMessage[serviceName] = [info, 'login-dialog-message-info'];
+
+            if (this._currentService == serviceName)
+                this.emit('show-message', info, 'login-dialog-message-info');
         }
     },
 
     _onProblem: function(client, serviceName, problem) {
-        this.emit('show-message', problem, 'login-dialog-message-warning');
+        this._currentMessage[serviceName] = [problem, 'login-dialog-message-warning'];
+
+        if (this._currentService == serviceName)
+            this.emit('show-message', problem, 'login-dialog-message-warning');
     },
 
     _showRealmLoginHint: function() {
@@ -327,31 +346,58 @@ const ShellUserVerifier = new Lang.Class({
     },
 
     _onInfoQuery: function(client, serviceName, question) {
-        // We only expect questions to come from the main auth service
-        if (serviceName != PASSWORD_SERVICE_NAME)
-            return;
+        this._currentQuery[serviceName] = [question, false];
 
         this._showRealmLoginHint();
-        this._realmLoginHintSignalId = this._realmManager.connect('login-format-changed',
-                                                                  Lang.bind(this, this._showRealmLoginHint));
+        if (this._reamLoginHintSignalId == 0) {
+            this._realmLoginHintSignalId = this._realmManager.connect('login-format-changed',
+                                                                      Lang.bind(this, this._showRealmLoginHint));
+        }
 
-        this.emit('ask-question', serviceName, question, '');
+        if (this._currentService == serviceName)
+            this._askQuestion(serviceName, secretQuestion, true);
     },
 
     _onSecretInfoQuery: function(client, serviceName, secretQuestion) {
-        // We only expect secret requests to come from the main auth service
-        if (serviceName != PASSWORD_SERVICE_NAME)
-            return;
+        this._currentQuery[serviceName] = [secretQuestion, true];
 
+        if (this._currentService == serviceName)
+            this._askQuestion(serviceName, secretQuestion, true);
+    },
+
+    switchToService: function(serviceName) {
+        this._currentService = serviceName;
+
+        // Clear any previous message
+        if (this._currentMessage[serviceName]) {
+            let [message, style] = this._currentMessage[serviceName];
+            this.emit('show-message', message, style);
+        } else {
+            this.emit('show-message', null, null);
+        }
+
+        if (this._currentQuery[serviceName]) {
+            let [question, secret] = this._currentQuery[serviceName];
+
+            this._askQuestion(serviceName, question, secret);
+        } else {
+            // Clear the question field
+            this._askQuestion(serviceName, null, true);
+            this.emit('hide-pin-pad');
+        }
+    },
+
+    _askQuestion: function(serviceName, question, secret) {
         // Special untranslated marker from pam_pin.so
-        if (secretQuestion == 'PIN') {
+        if (secret && question == 'PIN') {
             this.emit('show-pin-pad');
-            secretQuestion = _("PIN:");
+            question = _("PIN:");
         } else {
             this.emit('hide-pin-pad');
         }
 
-        this.emit('ask-question', serviceName, secretQuestion, '\u25cf');
+        this.emit('ask-question', serviceName, question,
+                  secret ? '\u25cf' : '');
     },
 
     _onReset: function() {
@@ -368,7 +414,7 @@ const ShellUserVerifier = new Lang.Class({
         this.emit('verification-complete');
     },
 
-    _verificationFailed: function(retry) {
+    _failed: function(retry) {
         // For Not Listed / enterprise logins, immediately reset
         // the dialog
         // Otherwise, we allow ALLOWED_FAILURES attempts. After that, we
@@ -393,12 +439,20 @@ const ShellUserVerifier = new Lang.Class({
         this.emit('verification-failed');
     },
 
-    _onConversationStopped: function(client, serviceName) {
+    _onVerificationFailed: function(client, serviceName) {
         // if the password service fails, then cancel everything.
         // But if, e.g., fingerprint fails, still give
         // password authentication a chance to succeed
-        if (serviceName == PASSWORD_SERVICE_NAME) {
-            this._verificationFailed(true);
+        if (serviceName == PASSWORD_SERVICE_NAME ||
+            serviceName == PIN_SERVICE_NAME) {
+
+            // Ignore this verification failed if we just got
+            // service unavailable
+            if (serviceName == PIN_SERVICE_NAME &&
+                !this._pinAvailable)
+                return;
+
+            this._failed(true);
         }
 
         if (serviceName == FINGERPRINT_SERVICE_NAME &&
@@ -406,7 +460,9 @@ const ShellUserVerifier = new Lang.Class({
             this._hasFingerprintHint = false;
             this.emit('hide-login-hint');
         }
+    },
 
+    _onConversationStopped: function(client, serviceName) {
         if (this._realmLoginHintSignalId) {
             this._realmManager.disconnect(this._realmLoginHintSignalId);
             this._realmLoginHintSignalId = 0;
@@ -418,6 +474,13 @@ const ShellUserVerifier = new Lang.Class({
             this._hasFingerprintHint) {
             this._hasFingerprintHint = false;
             this.emit('hide-login-hint');
+        }
+
+        if (serviceName == PIN_SERVICE_NAME) {
+            this._pinAvailable = false;
+
+            this.emit('hide-conversation-chooser');
+            this.switchToService(PASSWORD_SERVICE_NAME);
         }
     },
 });
@@ -453,3 +516,46 @@ const PinPadWidget = new Lang.Class({
         return button;
     }
 });
+
+const ConversationChooser = new Lang.Class({
+    Name: 'ConversationChooser',
+
+    _init: function(verifier) {
+        this.actor = new St.BoxLayout({ style_class: 'login-dialog-conversation-chooser' });
+
+        this._verifier = verifier;
+        this._buttons = { };
+
+        this._addButton(PASSWORD_SERVICE_NAME, 'dialog-password-symbolic');
+        this._addButton(PIN_SERVICE_NAME, 'input-dialpad-symbolic');
+
+        this._currentService = PIN_SERVICE_NAME;
+        this._buttons[this._currentService].checked = true;
+
+        verifier.connect('hide-conversation-chooser', Lang.bind(this, function() {
+            fadeOutActor(this.actor);
+        }));
+        verifier.connect('show-conversation-chooser', Lang.bind(this, function() {
+            fadeInActor(this.actor);
+        }));
+    },
+
+    _addButton: function(serviceName, iconName) {
+        let button = new St.Button({ style_class: 'login-dialog-conversation-button',
+                                     toggle_mode: true,
+                                     child: new St.Icon({ icon_size: 16,
+                                                          icon_name: iconName }) });
+
+        button.connect('clicked', Lang.bind(this, function(button) {
+            this._buttons[this._currentService].checked = false;
+            this._currentService = serviceName;
+            button.checked = true;
+
+            this._verifier.switchToService(serviceName);
+        }));
+        this.actor.add_actor(button);
+
+        this._buttons[serviceName] = button;
+    }
+});
+Signals.addSignalMethods(ConversationChooser.prototype);

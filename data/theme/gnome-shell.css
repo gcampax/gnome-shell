@@ -292,7 +292,8 @@ StScrollBar StButton#vhandle:active {
 .hotplug-notification-item,
 .hotplug-resident-eject-button,
 .modal-dialog-button,
-.app-view-control {
+.app-view-control,
+.login-dialog-conversation-button {
     border: 1px solid #8b8b8b;
     background-gradient-direction: vertical;
     background-gradient-start: rgba(255, 255, 255, 0.2);
@@ -308,7 +309,8 @@ StScrollBar StButton#vhandle:active {
 .notification-icon-button:hover,
 .hotplug-notification-item:hover,
 .hotplug-resident-eject-button:hover,
-.modal-dialog-button:hover {
+.modal-dialog-button:hover,
+.login-dialog-conversation-button:hover {
     background-gradient-start: rgba(255, 255, 255, 0.3);
     background-gradient-end: rgba(255, 255, 255, 0.1);
 }
@@ -316,7 +318,8 @@ StScrollBar StButton#vhandle:active {
 .notification-button:focus,
 .notification-icon-button:focus,
 .hotplug-notification-item:focus,
-.modal-dialog-button:focus {
+.modal-dialog-button:focus,
+.login-dialog-conversation-button:focus {
     border-width: 2px;
 }
 
@@ -328,7 +331,9 @@ StScrollBar StButton#vhandle:active {
 .hotplug-resident-eject-button:active,
 .modal-dialog-button:active,
 .modal-dialog-button:pressed,
-.app-view-control:checked {
+.app-view-control:checked,
+.login-dialog-conversation-button:active,
+.login-dialog-conversation-button:pressed {
     background-gradient-start: rgba(255, 255, 255, 0);
     background-gradient-end: rgba(255, 255, 255, 0.2);
 }
@@ -2422,6 +2427,21 @@ StScrollBar StButton#vhandle:active {
     text-align: left;
     padding-left: 15px;
     text-shadow: black 0px 4px 3px 0px;
+}
+
+.login-dialog-conversation-chooser {
+    padding-top: .5em;
+    padding-bottom: .5em;
+    spacing: 5px;
+}
+
+.login-dialog-conversation-button {
+    border-radius: 3px;
+    padding: 5px;
+}
+
+.login-dialog-conversation-button:checked {
+    border: 1px solid white;
 }
 
 /* Screen shield */
