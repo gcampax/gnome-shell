@@ -492,12 +492,15 @@ const PinPadWidget = new Lang.Class({
     _init: function(entry) {
         this._entry = entry;
 
-        this.actor = new St.Table({ style_class: 'pin-pad' });
+        this.actor = new St.Bin({ x_fill: false,
+                                  y_fill: false });
+        this._table = new St.Table({ style_class: 'pin-pad' });
 
-        this.actor.add(this._makeButton(0), { col: 1, row: 3 });
+        this.actor.child = this._table;
+        this._table.add(this._makeButton(0), { col: 1, row: 3 });
 
         for (let i = 1; i <= 9; i++) {
-            this.actor.add(this._makeButton(i),
+            this._table.add(this._makeButton(i),
                             { col: ((i-1) % 3),
                               row: Math.floor((i-1) / 3)
                             });

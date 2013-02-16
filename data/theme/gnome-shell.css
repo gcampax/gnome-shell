@@ -2553,12 +2553,12 @@ StScrollBar StButton#vhandle:active {
 }
 
 .pin-pad-key {
-    min-height: 30px;
-    min-width: 30px;
+    height: 60px;
+    width: 60px;
     background-gradient-start: rgba(255,245,245,0.4);
     background-gradient-end: rgba(105,105,105,0.1);
     background-gradient-direction: vertical;
-    font-size: 14pt;
+    font-size: 24pt;
     font-weight: bold;
     border-radius: 10px;
     border: 2px solid #a0a0a0;
