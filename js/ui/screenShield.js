@@ -795,6 +795,7 @@ const ScreenShield = new Lang.Class({
         if (this._activationTime == 0)
             this._activationTime = GLib.get_monotonic_time();
 
+        log('adding active watch');
         this._becameActiveId = this.idleMonitor.add_user_active_watch(Lang.bind(this, this._onUserBecameActive));
 
         let shouldLock = this._settings.get_boolean(LOCK_ENABLED_KEY) && !this._isLocked;
@@ -811,6 +812,8 @@ const ScreenShield = new Lang.Class({
     },
 
     _onUserBecameActive: function() {
+        log('_onUserBecameActive');
+
         // This function gets called here when the user becomes active
         // after gnome-session changed the status to IDLE
         // There are four possibilities here:
