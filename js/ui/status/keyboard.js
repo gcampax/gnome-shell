@@ -597,27 +597,9 @@ const InputSourceIndicator = new Lang.Class({
         Main.overview.hide();
 
         let source = this._currentSource;
-        let xkbLayout = '';
-        let xkbVariant = '';
 
-        if (source.type == INPUT_SOURCE_TYPE_XKB) {
-            [, , , xkbLayout, xkbVariant] = this._xkbInfo.get_layout_info(source.id);
-        } else if (source.type == INPUT_SOURCE_TYPE_IBUS) {
-            let engineDesc = this._ibusManager.getEngineDesc(source.id);
-            if (engineDesc) {
-                xkbLayout = engineDesc.get_layout();
-                xkbVariant = '';
-            }
-        }
-
-        if (!xkbLayout || xkbLayout.length == 0)
-            return;
-
-        let description = xkbLayout;
-        if (xkbVariant.length > 0)
-            description = description + '\t' + xkbVariant;
-
-        Util.spawn(['gkbd-keyboard-display', '-l', description]);
+        Util.spawn(['gnome-control-center', 'region', 'show-layout',
+                    source.displayName, source.type + ':' + source.id]);
     },
 
     _makeEngineShortName: function(engineDesc) {
