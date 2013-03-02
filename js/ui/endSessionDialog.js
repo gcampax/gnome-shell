@@ -488,6 +488,8 @@ const EndSessionDialog = new Lang.Class({
             return;
         }
 
+        log(inhibitorObjectPaths);
+
         for (let i = 0; i < inhibitorObjectPaths.length; i++) {
             let inhibitor = new GnomeSession.Inhibitor(inhibitorObjectPaths[i], Lang.bind(this, function(proxy, error) {
                 this._onInhibitorLoaded(proxy);
