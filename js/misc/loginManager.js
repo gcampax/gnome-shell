@@ -92,20 +92,7 @@ function versionCompare(required, reference) {
 }
 
 function canLock() {
-    try {
-        let params = GLib.Variant.new('(ss)', ['org.gnome.DisplayManager.Manager', 'Version']);
-        let result = Gio.DBus.system.call_sync('org.gnome.DisplayManager',
-                                               '/org/gnome/DisplayManager/Manager',
-                                               'org.freedesktop.DBus.Properties',
-                                               'Get', params, null,
-                                               Gio.DBusCallFlags.NONE,
-                                               -1, null);
-
-        let version = result.deep_unpack()[0].deep_unpack();
-        return versionCompare('3.5.91', version);
-    } catch(e) {
-        return false;
-    }
+    return true;
 }
 
 let _loginManager = null;
