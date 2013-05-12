@@ -544,7 +544,6 @@ const ScreenShield = new Lang.Class({
 
         this._lightbox = new Lightbox.Lightbox(Main.uiGroup,
                                                { inhibitEvents: true,
-                                                 fadeInTime: STANDARD_FADE_TIME,
                                                  fadeFactor: 1 });
         this._lightbox.connect('shown', Lang.bind(this, this._onLightboxShown));
 
@@ -790,7 +789,7 @@ const ScreenShield = new Lang.Class({
             return;
         }
 
-        this._lightbox.show();
+        this._lightbox.show(STANDARD_FADE_TIME);
 
         if (this._activationTime == 0)
             this._activationTime = GLib.get_monotonic_time();
