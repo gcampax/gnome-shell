@@ -95,7 +95,7 @@ const OsdWindow = new Lang.Class({
         this._box.add(this._icon, { expand: true });
 
         this._label = new St.Label();
-        this._box.add(this._label);
+        this._box.add(this._label, { x_fill: false });
 
         this._level = new LevelBar();
         this._box.add(this._level.actor);
