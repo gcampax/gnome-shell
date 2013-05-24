@@ -92,28 +92,25 @@ function isOutOfDate(extension) {
     return false;
 }
 
-function createExtensionObject(uuid, dir, type) {
-    let info;
+function _parseJSONMetadata(file) {
+    let success, contents, tag, meta;
 
-    let metadataFile = dir.get_child('metadata.json');
-    if (!metadataFile.query_exists(null)) {
-        throw new Error('Missing metadata.json');
-    }
-
-    let metadataContents, success, tag;
     try {
-        [success, metadataContents, tag] = metadataFile.load_contents(null);
-    } catch (e) {
-        throw new Error('Failed to load metadata.json: ' + e);
-    }
-    let meta;
-    try {
-        meta = JSON.parse(metadataContents);
-    } catch (e) {
-        throw new Error('Failed to parse metadata.json: ' + e);
+        [success, contents, tag] = file.load_contents(null);
+    } catch(e) {
+        if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+            throw new Error('Missing metadata.json');
+        else
+            throw new Error('Failed to load metadata.json: ' + e.message);
     }
 
-    let requiredProperties = ['uuid', 'name', 'description', 'shell-version'];
+    try {
+        meta = JSON.parse(contents);
+    } catch(e) {
+        throw new Error('Failed to parse metadata.json: ' + e.message);
+    }
+
+    const requiredProperties = ['uuid', 'name', 'description', 'shell-version'];
     for (let i = 0; i < requiredProperties.length; i++) {
         let prop = requiredProperties[i];
         if (!meta[prop]) {
@@ -121,14 +118,69 @@ function createExtensionObject(uuid, dir, type) {
         }
     }
 
+    return meta;
+}
+
+const _SHELL_EXTENSION_GROUP = 'Shell Extension';
+const _EXTRA_GROUP = 'Extra';
+
+const ExtensionMetadataDesktop = new Lang.Class({
+    Name: 'ExtensionMetadataDesktop',
+
+    _init: function(file) {
+        let success, contents, tag;
+
+        let keyfile = new GLib.KeyFile();
+        try {
+            keyfile.load_from_file(file.get_path(), GLib.KeyFileFlags.NONE);
+        } catch(e) {
+            throw new Error('Failed to load extension.desktop: ' + e.message);
+        }
+
+        try {
+            this.uuid = keyfile.get_string(_SHELL_EXTENSION_GROUP, 'UUID');
+            this.name = keyfile.get_locale_string(_SHELL_EXTENSION_GROUP, 'Name', null);
+            // Comment rather than Description because that's what .desktop file use
+            this.description = keyfile.get_locale_string(_SHELL_EXTENSION_GROUP, 'Comment', null);
+            this['shell-version'] = keyfile.get_string_list(_SHELL_EXTENSION_GROUP, 'ShellVersion');
+            try {
+                this['js-version'] = keyfile.get_string_list(_SHELL_EXTENSION_GROUP, 'JSVersion');
+            } catch(e) { }
+        } catch(e) {
+            throw new Error('Invalid extension.desktop: ' + e.message);
+        }
+
+        if (keyfile.has_group(_EXTRA_GROUP)) {
+            let [extraKeys, len] = keyfile.get_keys(_EXTRA_GROUP);
+
+            for (let i = 0; i < extraKeys.length; i++)
+                this[extraKeys[i]] = keyfile.get_string(_EXTRA_GROUP, extraKeys[i]);
+        }
+    }
+});
+
+function _createExtensionMetadata(uuid, dir) {
+    let metadataJson = dir.get_child('metadata.json');
+    let metadataDesktop = dir.get_child('extension.desktop');
+    let meta;
+
+    if (metadataDesktop.query_exists(null))
+        meta = new ExtensionMetadataDesktop(metadataDesktop);
+    else
+        meta = _parseJSONMetadata(metadataJson);
+
     if (uuid != meta.uuid) {
-        throw new Error('uuid "' + meta.uuid + '" from metadata.json does not match directory name "' + uuid + '"');
+        throw new Error('uuid "' + meta.uuid + '" from metadata file does not match directory name "' + uuid + '"');
     }
 
+    return meta;
+}
+
+function createExtensionObject(uuid, dir, type) {
     let extension = {};
 
-    extension.metadata = meta;
-    extension.uuid = meta.uuid;
+    extension.metadata = _createExtensionMetadata(uuid, dir);
+    extension.uuid = extension.metadata.uuid;
     extension.type = type;
     extension.dir = dir;
     extension.path = dir.get_path();
