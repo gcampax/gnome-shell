@@ -39,8 +39,33 @@ const disconnect = Lang.bind(_signals, _signals.disconnect);
 
 const ENABLED_EXTENSIONS_KEY = 'enabled-extensions';
 
+// Timeout after which we check for updates if we have outdated extensions
+// (in seconds)
+const UPDATE_TIMEOUT_FOR_OUTDATED = 10;
+
+// Timeout after which we check for updates at login, in the general case
+// Should be long enough not to affect fast logins when the user is in a
+// hurry (in seconds)
+//
+// We only check this once, at login, to avoid continously hitting the
+// network
+const UPDATE_TIMEOUT_NORMAL = 600;
+
 var initted = false;
 var enabled;
+var _queueCheckUpdateId = 0;
+
+function _queueCheckUpdate(timeout) {
+    if (_queueCheckUpdateId != 0)
+        return;
+
+    _queueCheckUpdateId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW, timeout, function() {
+        Main.ExtensionDownloader.checkForUpdates();
+
+        _queueCheckUpdateId = 0;
+        return false;
+    });
+}
 
 function disableExtension(uuid) {
     let extension = ExtensionUtils.extensions[uuid];
@@ -147,6 +172,8 @@ function loadExtension(extension) {
 
     if (ExtensionUtils.isOutOfDate(extension)) {
         extension.state = ExtensionState.OUT_OF_DATE;
+
+        _queueCheckUpdate(UPDATE_TIMEOUT_FOR_OUTDATED);
     } else {
         let enabled = enabledExtensions.indexOf(extension.uuid) != -1;
         if (enabled) {
@@ -268,6 +295,9 @@ function _loadExtensions() {
         } catch(e) {
             logExtensionError(extension.uuid, e);
         }
+    });
+    finder.connect('extensions-loaded', function() {
+        _queueCheckUpdate(UPDATE_TIMEOUT_NORMAL);
     });
     finder.scanExtensions();
 }
