@@ -36,6 +36,11 @@ stage {
     color: #0000e0;
 }
 
+.shell-link-notification {
+    color: #ccccff;
+    text-decoration: underline;
+}
+
 /* small */
 .app-well-menu,
 .run-dialog-error-label {

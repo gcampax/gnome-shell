@@ -5,6 +5,7 @@ const Lang = imports.lang;
 const Clutter = imports.gi.Clutter;
 const GLib = imports.gi.GLib;
 const Gio = imports.gi.Gio;
+const Gtk = imports.gi.Gtk;
 const Soup = imports.gi.Soup;
 const St = imports.gi.St;
 const Shell = imports.gi.Shell;
@@ -13,7 +14,10 @@ const Config = imports.misc.config;
 const ExtensionUtils = imports.misc.extensionUtils;
 const ExtensionSystem = imports.ui.extensionSystem;
 const FileUtils = imports.misc.fileUtils;
+const MessageTray = imports.ui.messageTray;
 const ModalDialog = imports.ui.modalDialog;
+
+const Main = imports.ui.main;
 
 const _signals = ExtensionSystem._signals;
 
@@ -106,13 +110,32 @@ function gotExtensionZipFile(session, message, uuid, dir, callback, errback) {
     });
 }
 
-function updateExtension(uuid) {
+let _source;
+function _ensureSource() {
+    if (_source)
+        return _source;
+
+    _source = new MessageTray.Source(_("Extension System"), 'applications-system');
+    _source.connect('destroy', function() { _source = null; });
+    Main.messageTray.add(_source);
+    return _source;
+}
+
+function _notifyMessage(title, message) {
+    let source = _ensureSource();
+    let n = new MessageTray.Notification(source, title, message ? String(message) : '');
+    n.setTransient(true);
+
+    source.notify(n);
+}
+
+function updateExtension(uuid, callback, errback) {
     // This gets a bit tricky. We want the update to be seamless -
     // if we have any error during downloading or extracting, we
     // want to not unload the current version.
 
-    let oldExtensionTmpDir = GLib.Dir.make_tmp('XXXXXX-shell-extension');
-    let newExtensionTmpDir = GLib.Dir.make_tmp('XXXXXX-shell-extension');
+    let oldExtensionTmpDir = Gio.File.new_for_path(GLib.Dir.make_tmp('XXXXXX-shell-extension'));
+    let newExtensionTmpDir = Gio.File.new_for_path(GLib.Dir.make_tmp('XXXXXX-shell-extension'));
 
     let params = { shell_version: Config.PACKAGE_VERSION };
 
@@ -145,21 +168,175 @@ function updateExtension(uuid) {
                 // Restore what was there before. We can't do much if we
                 // fail here.
                 ExtensionSystem.loadExtension(oldExtension);
+
+                errback(uuid, e.code, e.message);
                 return;
             }
 
             FileUtils.recursivelyDeleteDir(oldExtensionTmpDir, true);
+
+            callback(uuid);
         }, function(code, message) {
-            log('Error while updating extension %s: %s (%s)'.format(uuid, code, message ? message : ''));
+            errback(uuid, code, message);
         });
     }));
 }
 
+function _notifyUpdateSuccessOne(uuid) {
+    let extension = ExtensionUtils.extensions[uuid];
+    let name = extension.metadata.name;
+
+    _notifyMessage(_("Extension %s successfully updated").format(name));
+}
+
+function _notifyUpdateFailure(uuid, code, message) {
+    let extension = ExtensionUtils.extensions[uuid];
+    let name = extension ? extension.metadata.name : uuid;
+
+    _notifyMessage(_("There was a problem updating %s").format(name), code, message);
+}
+
+function _notifyUpdateSuccessMany(number) {
+    let title = ngettext("%d extension successfully updated",
+                         "%d extensions successfully updated", number);
+
+    _notifyMessage(title.format(number));
+}
+
+function _applyUpdates(updates) {
+    let n = updates.length;
+    let callback;
+
+    if (updates.length == 1) {
+        callback = _notifyUpdateSuccessOne;
+    } else {
+        callback = function() {
+            if (n <= 0)
+                return;
+
+            n--;
+            if (n == 0)
+                _notifyUpdateSuccessMany(updates.length);
+        };
+    }
+
+    for (let i = 0; i < updates.length; i++)
+        updateExtension(updates[i].uuid, callback, _notifyUpdateFailure);
+}
+
+function _notifyForUpdates(updates) {
+    let title = ngettext("Extension update available",
+                         "Extension updates available", updates.length);
+    let body;
+
+    if (updates.length == 1) {
+        body = _("Version %d of %s is available for update.").format(updates[0].version, updates[0].name);
+    } else {
+        body = ngettext("%d extension can be updated",
+                        "%d extensions can be updated", updates.length).
+            format(updates.length);
+    }
+
+    let source = _ensureSource();
+    let n = new MessageTray.Notification(source, title, body);
+    // This is wrong in principle, but is needed because otherwise action-invoked
+    // destroys the notification at the end
+    n.setResident(true);
+    n.addButton('update', _("Update now"));
+    if (updates.length > 1 && updates.some(function(u) { return !!u.url; }))
+        n.addButton('details', _("Show details"));
+
+    n.connect('action-invoked', function(n, id) {
+        if (id == 'details') {
+            n.update(title, _("The following updates are available"),
+                     { clear: true });
+
+            for (let i = 0; i < updates.length; i++) {
+                let b = new St.Button({ label: updates[i].name,
+                                        style: 'shell-link-notification' });
+                let url = updates[i].url;
+                if (url) {
+                    b.connect('clicked', function() {
+                        Gtk.show_uri(null, url, global.get_current_time());
+                    });
+                }
+
+                n.addActor(b, { x_align: St.Align.START });
+            }
+
+            n.addButton('update', _("Update now"));
+        } else if (id == 'update') {
+            _applyUpdates(updates, true);
+
+            n.emit('done-displaying');
+            n.destroy();
+        }
+    });
+
+    source.notify(n);
+}
+
+function _logDowngradeFailure(uuid, code, message) {
+    log('Error downgrading %s: %d: %s'.format(uuid, code, message));
+}
+
+function _notifyForDowngraded(updates) {
+    for (let i = 0; i < updates.length; i++)
+        updateExtension(updates[i].uuid, function() { },
+                        _logDowngradeFailure);
+
+    let title = ngettext("One extension was downgraded",
+                         "Some extensions were downgraded", updates.length);
+    let body;
+    if (updates.length == 1) {
+        body = _("For security reasons, %s was downgraded to version %d").
+            format(updates[0].name, updates[0].version);
+    } else {
+        body = ngettext("For security reasons, the following extension was downgraded:\n",
+                        "For security reasons, the following extensions were downgraded:\n",
+                        updates.length);
+        for (let i = 0; i < updates.length; i++)
+            body += (i > 0 ? '\n' : '') + updates[i].name;
+    }
+
+    let source = _ensureSource();
+    let n = new MessageTray.Notification(source, title, body);
+    source.notify(n);
+}
+
+function _notifyForBlacklisted(updates) {
+    if (0) {
+        /* Don't really do it, extensions.gnome.org is broken and
+           emits 'blacklisted' for outdated extensions for which
+           no update exists
+        */
+
+        for (let i = 0; i < updates.length; i++)
+            uninstallExtension(updates[i].uuid);
+    }
+
+    let title = ngettext("One extension was blacklisted",
+                         "Some extensions were blacklisted", updates.length);
+    let body;
+    if (updates.length == 1) {
+        body = _("For security reasons, %s was uninstalled").format(updates[0].name);
+    } else {
+        body = ngettext("For security reasons, the following extension was uninstalled:\n",
+                        "For security reasons, the following extensions were uninstalled:\n",
+                        updates.length);
+        for (let i = 0; i < updates.length; i++)
+            body += (i > 0 ? '\n' : '') + updates[i].name;
+    }
+
+    let source = _ensureSource();
+    let n = new MessageTray.Notification(source, title, body);
+    source.notify(n);
+}
+
 function checkForUpdates() {
     let metadatas = {};
-    for (let uuid in ExtensionUtils.extensions) {
+    for (let uuid in ExtensionUtils.extensions)
         metadatas[uuid] = ExtensionUtils.extensions[uuid].metadata;
-    }
 
     let params = { shell_version: Config.PACKAGE_VERSION,
                    installed: JSON.stringify(metadatas) };
@@ -171,13 +348,63 @@ function checkForUpdates() {
             return;
 
         let operations = JSON.parse(message.response_body.data);
+        let toUpdate = [], toBlacklist = [], toDowngrade = [];
+
         for (let uuid in operations) {
             let operation = operations[uuid];
-            if (operation == 'blacklist')
-                uninstallExtension(uuid);
-            else if (operation == 'upgrade' || operation == 'downgrade')
-                updateExtension(uuid);
+            let extension = ExtensionUtils.extensions[uuid];
+
+            if (!extension) {
+                // Something else operated on this extension
+                // while we were checking for updates
+                continue;
+            }
+
+            let obj = { };
+            let type;
+            if (typeof operation == 'string') {
+                type = operation;
+                obj.comment = null;
+                obj.version = 0;
+                obj.url = null;
+            } else {
+                type = operation.type;
+                obj.comment = operation.comment;
+                obj.version = operation.version;
+                obj.url = REPOSITORY_URL_BASE + operation.url;
+            }
+
+            if (!obj.version)
+                obj.version = extension.metadata.version + 1;
+            obj.name = extension.metadata.name;
+            obj.uuid = uuid;
+
+            switch (type) {
+            case 'blacklist':
+                toBlacklist.push(obj);
+                break;
+
+            case 'upgrade':
+                toUpdate.push(obj);
+                break;
+
+            case 'downgrade':
+                toDowngrade.push(obj);
+                break;
+
+            default:
+                log('Unknown operation %s for extension %s'.
+                    format(operation, uuid));
+                break;
+            }
         }
+
+        if (toBlacklist.length > 0)
+            _notifyForBlacklisted(toBlacklist);
+        if (toDowngrade.length > 0)
+            _notifyForDowngraded(toDowngrade);
+        if (toUpdate.length > 0)
+            _notifyForUpdates(toUpdate);
     });
 }
 
