@@ -334,12 +334,19 @@ function _notifyForBlacklisted(updates) {
 }
 
 function checkForUpdates() {
-    let metadatas = {};
-    for (let uuid in ExtensionUtils.extensions)
-        metadatas[uuid] = ExtensionUtils.extensions[uuid].metadata;
+    let current = [];
+    for (let uuid in ExtensionUtils.extensions) {
+        let extension = ExtensionUtils.extensions[uuid];
+        if (extension.metadata.version)
+            current.push([uuid, extension.metadata.version]);
+
+        // don't bother checking for newer version of extensions
+        // that were not installed from extensions.gnome.org,
+        // the server will ignore them anyway
+    }
 
     let params = { shell_version: Config.PACKAGE_VERSION,
-                   installed: JSON.stringify(metadatas) };
+                   current: JSON.stringify(current) };
 
     let url = REPOSITORY_URL_UPDATE;
     let message = Soup.form_request_new_from_hash('GET', url, params);
