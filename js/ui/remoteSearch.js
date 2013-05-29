@@ -164,6 +164,10 @@ function remoteProvidersLoaded(loadState) {
         });
 }
 
+function _startsWith(str, prefix) {
+    return str.substr(0, prefix.length) == prefix;
+}
+
 const RemoteSearchProvider = new Lang.Class({
     Name: 'RemoteSearchProvider',
 
@@ -200,6 +204,16 @@ const RemoteSearchProvider = new Lang.Class({
 
         return new St.Icon({ gicon: gicon,
                              icon_size: size });
+    },
+
+    filterResults: function(results, maxNumber) {
+        if (results.length <= maxNumber)
+            return results;
+
+        let regularResults = results.filter(function(r) { return !_startsWith(r, 'special:') });
+        let specialResults = results.filter(function(r) { return _startsWith(r, 'special:'); });
+
+        return regularResults.slice(0, maxNumber).concat(specialResults);
     },
 
     _getResultsFinished: function(results, error) {
