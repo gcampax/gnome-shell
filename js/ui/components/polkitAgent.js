@@ -176,6 +176,9 @@ const AuthenticationDialog = new Lang.Class({
 
         this._identityToAuth = Polkit.UnixUser.new_for_name(userName);
         this._cookie = cookie;
+
+        this._attempts = 0;
+        this._loginSettings = new Gio.Settings({ schema: 'org.gnome.login-screen' });
     },
 
     performAuthentication: function() {
@@ -187,6 +190,8 @@ const AuthenticationDialog = new Lang.Class({
         this._session.connect('show-error', Lang.bind(this, this._onSessionShowError));
         this._session.connect('show-info', Lang.bind(this, this._onSessionShowInfo));
         this._session.initiate();
+
+        this._attempts++;
     },
 
     _ensureOpen: function() {
@@ -247,6 +252,7 @@ const AuthenticationDialog = new Lang.Class({
             return;
 
         this._completed = true;
+        this.setWorking(false);
 
         /* Yay, all done */
         if (gainedAuthorization) {
@@ -269,8 +275,17 @@ const AuthenticationDialog = new Lang.Class({
                 this._nullMessageLabel.hide();
             }
 
-            /* Try and authenticate again */
-            this.performAuthentication();
+            /* Try and authenticate again, if we did not make more attempts than
+               configured. */
+            if (this._attempts < this._loginSettings.get_int('allowed-failures')) {
+                this.performAuthentication();
+            } else {
+                // Give the user 2 seconds to read 'Authentication Failure' before
+                // dismissing the dialog
+                Mainloop.timeout_add(2000, Lang.bind(this, function() {
+                    this._emitDone(false);
+                }));
+            }
         }
     },
 
