@@ -588,6 +588,21 @@ const ScreenShield = new Lang.Class({
         }
     },
 
+    _maybeCancelDialog: function() {
+        if (!this._dialog)
+            return;
+
+        this._dialog.cancel();
+        if (!this._isGreeter) {
+            this._dialog = null;
+        } else {
+            // LoginDialog.cancel() will grab the key focus
+            // on its own, so ensure it stays on lock screen
+            // instead
+            this._lockScreenGroup.grab_key_focus();
+        }
+    },
+
     _becomeModal: function() {
         if (this._isModal)
             return true;
@@ -743,13 +758,7 @@ const ScreenShield = new Lang.Class({
                                onCompleteScope: this,
                              });
 
-            // If we have a unlock dialog, cancel it
-            if (this._dialog) {
-                this._dialog.cancel();
-                if (!this._isGreeter) {
-                    this._dialog = null;
-                }
-            }
+            this._maybeCancelDialog();
         }
     },
 
@@ -757,12 +766,7 @@ const ScreenShield = new Lang.Class({
         if (status != GnomeSession.PresenceStatus.IDLE)
             return;
 
-        if (this._dialog) {
-            this._dialog.cancel();
-            if (!this._isGreeter) {
-                this._dialog = null;
-            }
-        }
+        this._maybeCancelDialog();
 
         if (this._lightbox.actor.visible ||
             this._isActive) {
