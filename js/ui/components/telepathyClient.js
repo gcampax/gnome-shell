@@ -16,6 +16,7 @@ const MessageTray = imports.ui.messageTray;
 const NotificationDaemon = imports.ui.notificationDaemon;
 const Params = imports.misc.params;
 const PopupMenu = imports.ui.popupMenu;
+const Util = imports.misc.util;
 
 // See Notification.appendMessage
 const SCROLLBACK_IMMEDIATE_TIME = 3 * 60; // 3 minutes
@@ -62,6 +63,56 @@ function makeMessageFromTplEvent(event) {
         timestamp: event.get_timestamp(),
         direction: direction
     };
+}
+
+// keep in sync with empathy/libempathy-gtk/empathy-smiley-manager.c
+const EMOTICONS = [
+    ['😇', ['O:-)','O:)']], // face-angel
+    ['😠', ['X-(', ':@']], // face-angry
+    ['😎', ['B-)', 'B-|']], // face-cool
+    ['😢', [':\'(']], // face-crying
+    ['😈', ['>:-)', '>:)']], // face-devilish
+    ['😳', [':-[', ':[', ':-$', ':$']], // face-emabarrassed
+    [null, ['8-)']], // FIXME: face-glasses
+    ['😘', [':-*', ':*']], // face-kiss
+    ['😁', [':-))', ':))']], // face-laugh
+    [null, [':-(|)', ':(|)']], // FIXME: face-monkey, XXX: there are a monkeys in Unicode, just not in the fonts we use
+    ['😐', [':-|', ':|']], // face-plain
+    ['😜', [':-P', ':P', ':-p', ':p']], // face-raspberry
+    ['😞', [':-(', ':(']], // face-sad
+    ['😵', [':-&', ':&']], // face-sick, XXX: Unicode says it's FACE DIZZY, but it doesn't look to me
+    ['😃', [':-)', ':)', ':]', '=)']], // face-smile, XXX: the older SMILING FACE would be more appropriate, but is rendered different by some fonts
+    ['😄', [':-D', ':D', ':-d', ':d']], // face-smile-big
+    ['😏', [':-!', ':!']], // face-smirk, XXX: gnome-icon-theme seems to be wrong on this one
+    ['😲', [':-O', ':O', ':-o', ':o']], // face-surprise, XXX: or 😮?
+    ['😪', ['|-)', '|)']], // face-tired, XXX: SLEEPY FACE according to Unicode, but it doesn't seem to me
+    ['😕', [':-/', ':/', ':-\\', ':\\']], // face-uncertain
+    ['😉', [';-)', ';)']], // face-wink
+    ['😟', [':-S', ':S', ':-s', ':s']], // face-worried
+    ['♥', ['<3']]
+];
+let _emoticonsInited = false;
+
+function _ensureEmoticons() {
+    if (_emoticonsInited)
+        return;
+
+    EMOTICONS.forEach(function (e) {
+        e[2] = Util.regexify(e[1]);
+    });
+    _emoticonsInited = true;
+}
+
+function _formatMessageText(text) {
+    _ensureEmoticons();
+
+    text = EMOTICONS.reduce(function(text, e, index, array) {
+        if (e[0] == null)
+            return text;
+
+        return text.replace(e[2], e[0]);
+    }, text);
+    return GLib.markup_escape_text(text, -1);
 }
 
 const TelepathyClient = new Lang.Class({
@@ -803,7 +854,7 @@ const ChatNotification = new Lang.Class({
      *   last timestamp
      */
     appendMessage: function(message, noTimestamp) {
-        let messageBody = GLib.markup_escape_text(message.text, -1);
+        let messageBody = _formatMessageText(message.text);
         let styles = [message.direction];
 
         if (message.messageType == Tp.ChannelTextMessageType.ACTION) {
