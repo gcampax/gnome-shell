@@ -273,3 +273,33 @@ function ensureActorVisibleInScrollView(scrollView, actor) {
                        time: SCROLL_TIME,
                        transition: 'easeOutQuad' });
 }
+
+/**
+ * regexify:
+ * @patterns: a list of literal patterns
+ *
+ * Create a regular expression that will match
+ * any of the strings in @patterns, which are
+ * treated as unescaped literals.
+ */
+function regexify(patterns) {
+    const SPECIAL_CHARS = '\\^$*+?.()|{}[]';
+
+    let regex = '';
+    for (let i = 0; i < patterns.length; i++) {
+        let pattern, out;
+
+        pattern = patterns[i];
+        out = '';
+        for (let j = 0; j < pattern.length; j++) {
+            if (SPECIAL_CHARS.indexOf(pattern[j]) >= 0)
+                out += '\\' + pattern[j];
+            else
+                out += pattern[j];
+        }
+
+        regex += (i > 0 ? '|' : '') + out;
+    }
+
+    return new RegExp(regex, 'g');
+}
