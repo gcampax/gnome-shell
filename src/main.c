@@ -22,6 +22,7 @@
 #include <atk-bridge.h>
 #include <telepathy-glib/debug.h>
 #include <telepathy-glib/debug-sender.h>
+#include <meta/util.h>
 
 #include "shell-global.h"
 #include "shell-global-private.h"
@@ -41,6 +42,7 @@ extern GType gnome_shell_plugin_get_type (void);
 
 static gboolean is_gdm_mode = FALSE;
 static char *session_mode = NULL;
+static gboolean is_display_server = FALSE;
 
 #define DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER 1
 #define DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER 4
@@ -347,6 +349,14 @@ print_version (const gchar    *option_name,
 }
 
 GOptionEntry gnome_shell_options[] = {
+#ifdef HAVE_WAYLAND
+  {
+    "display-server", 0, 0, G_OPTION_ARG_NONE,
+    &is_display_server,
+    N_("Run as a display server"),
+    NULL,
+  },
+#endif
   {
     "version", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
     print_version,
@@ -396,6 +406,10 @@ main (int argc, char **argv)
     }
 
   g_option_context_free (ctx);
+
+#ifdef HAVE_WAYLAND
+  meta_set_is_wayland_compositor (is_display_server);
+#endif
 
   meta_plugin_manager_set_plugin_type (gnome_shell_plugin_get_type ());
 
