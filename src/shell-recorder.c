@@ -132,6 +132,13 @@ enum {
   PROP_DRAW_CURSOR
 };
 
+enum {
+  SIGNAL_ERROR,
+  SIGNAL_LAST
+};
+
+static int signals[SIGNAL_LAST];
+
 G_DEFINE_TYPE(ShellRecorder, shell_recorder, G_TYPE_OBJECT);
 
 /* The default value of the target frame rate; we'll never record more
@@ -1156,6 +1163,15 @@ shell_recorder_class_init (ShellRecorderClass *klass)
                                                          "Whether to record the cursor",
                                                          TRUE,
                                                          G_PARAM_READWRITE));
+
+  signals[SIGNAL_ERROR] = g_signal_new ("error",
+                                        G_TYPE_FROM_CLASS (gobject_class),
+                                        G_SIGNAL_RUN_FIRST,
+                                        0, /* class offset */
+                                        NULL, NULL, /* accumulator */
+                                        g_cclosure_marshal_VOID__BOXED,
+                                        G_TYPE_NONE,
+                                        1, G_TYPE_ERROR);
 }
 
 /* Sets the GstCaps (video format, in this case) on the stream
@@ -1500,8 +1516,9 @@ recorder_pipeline_bus_watch (GstBus     *bus,
         GError *error;
 
         gst_message_parse_error (message, &error, NULL);
-        g_warning ("Error in recording pipeline: %s\n", error->message);
+        g_signal_emit (pipeline->recorder, signals[SIGNAL_ERROR], 0, error);
         g_error_free (error);
+
         recorder_pipeline_closed (pipeline);
         return FALSE; /* remove watch */
       }

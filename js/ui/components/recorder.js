@@ -29,8 +29,13 @@ const Recorder = new Lang.Class({
     },
 
     _ensureRecorder: function() {
-        if (this._recorder == null)
+        if (this._recorder == null) {
             this._recorder = new Shell.Recorder({ stage: global.stage });
+            this._recorder.connect('error', Lang.bind(this, function(recorder, error) {
+                Main.notifyError(_("Screen recording failed"), error.message);
+            }));
+        }
+
         return this._recorder;
     },
 
