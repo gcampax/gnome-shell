@@ -17,12 +17,6 @@
 #include "st.h"
 #include "gtkactionmuxer.h"
 
-typedef enum {
-  MATCH_NONE,
-  MATCH_SUBSTRING, /* Not prefix, substring */
-  MATCH_PREFIX, /* Strict prefix */
-} ShellAppSearchMatch;
-
 /* This is mainly a memory usage optimization - the user is going to
  * be running far fewer of the applications at one time than they have
  * installed.  But it also just helps keep the code more logically
@@ -1471,32 +1465,32 @@ shell_app_compare_by_name (ShellApp *app, ShellApp *other)
   return strcmp (app->name_collation_key, other->name_collation_key);
 }
 
-static ShellAppSearchMatch
+static int
 _shell_app_match_search_terms (ShellApp  *app,
                                GSList    *terms)
 {
   GSList *iter;
-  ShellAppSearchMatch match;
+  int match;
 
   if (G_UNLIKELY (!app->casefolded_name))
     shell_app_init_search_data (app);
 
-  match = MATCH_NONE;
+  match = -1;
   for (iter = terms; iter; iter = iter->next)
     {
-      ShellAppSearchMatch current_match;
+      int current_match;
       const char *term = iter->data;
       const char *p;
 
-      current_match = MATCH_NONE;
+      current_match = -1;
 
       p = strstr (app->casefolded_name, term);
       if (p != NULL)
         {
           if (p == app->casefolded_name || *(p - 1) == ' ')
-            current_match = MATCH_PREFIX;
+            current_match = SHELL_MATCH_RANK_NAME_PREFIX;
           else
-            current_match = MATCH_SUBSTRING;
+            current_match = SHELL_MATCH_RANK_NAME_SUBSTRING;
         }
 
       if (app->casefolded_generic_name)
@@ -1505,9 +1499,9 @@ _shell_app_match_search_terms (ShellApp  *app,
           if (p != NULL)
             {
               if (p == app->casefolded_generic_name || *(p - 1) == ' ')
-                current_match = MATCH_PREFIX;
-              else if (current_match < MATCH_PREFIX)
-                current_match = MATCH_SUBSTRING;
+                current_match = MAX (current_match, SHELL_MATCH_RANK_KEYWORD_PREFIX);
+              else
+                current_match = MAX (current_match, SHELL_MATCH_RANK_KEYWORD_SUBSTRING);
             }
         }
 
@@ -1517,30 +1511,30 @@ _shell_app_match_search_terms (ShellApp  *app,
           if (p != NULL)
             {
               if (p == app->casefolded_exec || *(p - 1) == '-')
-                current_match = MATCH_PREFIX;
-              else if (current_match < MATCH_PREFIX)
-                current_match = MATCH_SUBSTRING;
+                current_match = MAX (current_match, SHELL_MATCH_RANK_NAME_PREFIX);
+              else
+                current_match = MAX (current_match, SHELL_MATCH_RANK_NAME_SUBSTRING);
             }
         }
 
       if (app->casefolded_keywords)
         {
           int i = 0;
-          while (app->casefolded_keywords[i] && current_match < MATCH_PREFIX)
+          while (app->casefolded_keywords[i])
             {
               p = strstr (app->casefolded_keywords[i], term);
               if (p != NULL)
                 {
                   if (p == app->casefolded_keywords[i])
-                    current_match = MATCH_PREFIX;
+                    current_match = MAX (current_match, SHELL_MATCH_RANK_KEYWORD_PREFIX);
                   else
-                    current_match = MATCH_SUBSTRING;
+                    current_match = MAX (current_match, SHELL_MATCH_RANK_KEYWORD_SUBSTRING);
                 }
               ++i;
             }
         }
 
-      if (current_match == MATCH_NONE)
+      if (current_match < 0)
         return current_match;
 
       if (current_match > match)
@@ -1552,10 +1546,9 @@ _shell_app_match_search_terms (ShellApp  *app,
 void
 _shell_app_do_match (ShellApp         *app,
                      GSList           *terms,
-                     GSList          **prefix_results,
-                     GSList          **substring_results)
+                     GSList           *results[SHELL_MATCH_RANK_LAST])
 {
-  ShellAppSearchMatch match;
+  int match;
   GAppInfo *appinfo;
 
   g_assert (app != NULL);
@@ -1569,19 +1562,11 @@ _shell_app_do_match (ShellApp         *app,
     return;
 
   match = _shell_app_match_search_terms (app, terms);
-  switch (match)
-    {
-      case MATCH_NONE:
-        break;
-      case MATCH_PREFIX:
-        *prefix_results = g_slist_prepend (*prefix_results, app);
-        break;
-      case MATCH_SUBSTRING:
-        *substring_results = g_slist_prepend (*substring_results, app);
-        break;
-    }
-}
+  if (match < 0)
+    return;
 
+  results[match] = g_slist_prepend (results[match], app);
+}
 
 static void
 shell_app_init (ShellApp *self)
