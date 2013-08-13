@@ -877,11 +877,11 @@ gnome_shell_gdk_event_handler (GdkEvent *event_gdk,
 {
   if (event_gdk->type == GDK_KEY_PRESS || event_gdk->type == GDK_KEY_RELEASE)
     {
-      ClutterActor *stage;
+      ShellGlobal *global;
       Window stage_xwindow;
 
-      stage = CLUTTER_ACTOR (data);
-      stage_xwindow = clutter_x11_get_stage_window (CLUTTER_STAGE (stage));
+      global = data;
+      stage_xwindow = global->stage_xwindow;
 
       if (GDK_WINDOW_XID (event_gdk->key.window) == stage_xwindow)
         {
@@ -893,7 +893,7 @@ gnome_shell_gdk_event_handler (GdkEvent *event_gdk,
                                                            CLUTTER_KEY_PRESS : CLUTTER_KEY_RELEASE);
           event_clutter->key.time = event_gdk->key.time;
           event_clutter->key.flags = CLUTTER_EVENT_NONE;
-          event_clutter->key.stage = CLUTTER_STAGE (stage);
+          event_clutter->key.stage = CLUTTER_STAGE (global->stage);
           event_clutter->key.source = NULL;
 
           /* This depends on ClutterModifierType and GdkModifierType being
@@ -993,7 +993,7 @@ _shell_global_set_plugin (ShellGlobal *global,
   g_signal_connect (global->meta_display, "notify::focus-window",
                     G_CALLBACK (focus_window_changed), global);
 
-  gdk_event_handler_set (gnome_shell_gdk_event_handler, global->stage, NULL);
+  gdk_event_handler_set (gnome_shell_gdk_event_handler, global, NULL);
 
   global->focus_manager = st_focus_manager_get_for_stage (global->stage);
 }
