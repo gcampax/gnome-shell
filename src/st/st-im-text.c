@@ -203,6 +203,9 @@ st_im_text_get_paint_volume (ClutterActor       *self,
   return clutter_paint_volume_set_from_allocation (volume, self);
 }
 
+
+static GdkWindow *fake_window;
+
 /* Returns a new reference to window */
 static GdkWindow *
 window_for_actor (ClutterActor *actor)
@@ -212,7 +215,11 @@ window_for_actor (ClutterActor *actor)
   Window xwindow;
   GdkWindow *window;
 
+  if (fake_window != NULL)
+    return g_object_ref (fake_window);
+
   stage = clutter_actor_get_stage (actor);
+
   xwindow = clutter_x11_get_stage_window ((ClutterStage *)stage);
 
   window = gdk_x11_window_lookup_for_display (display, xwindow);
@@ -222,6 +229,12 @@ window_for_actor (ClutterActor *actor)
     window = gdk_x11_window_foreign_new_for_display (display, xwindow);
 
   return window;
+}
+
+void
+st_im_text_set_fake_window (GdkWindow *fake)
+{
+  fake_window = fake;
 }
 
 static void

@@ -956,6 +956,7 @@ _shell_global_set_plugin (ShellGlobal *global,
                                                  &attributes,
                                                  0 /* attributes_mask */);
       global->stage_xwindow = gdk_x11_window_get_xid (global->stage_gdk_window);
+      st_im_text_set_fake_window (global->stage_gdk_window);
     }
   else
 #endif

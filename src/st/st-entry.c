@@ -686,6 +686,9 @@ st_entry_set_cursor (StEntry  *entry,
   Window wid;
   static Cursor ibeam = None;
 
+  if (!clutter_check_windowing_backend (CLUTTER_WINDOWING_X11))
+    return;
+
   dpy = clutter_x11_get_default_display ();
   stage = clutter_actor_get_stage (actor);
 
