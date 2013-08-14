@@ -1316,6 +1316,46 @@ void shell_global_init_xdnd (ShellGlobal *global)
                    32, PropModeReplace, (const unsigned char *)&global->stage_xwindow, 1);
 }
 
+void
+get_pointer_position_gdk (ShellGlobal *global,
+                          int         *x,
+                          int         *y,
+                          int         *mods)
+{
+  GdkDeviceManager *gmanager;
+  GdkDevice *gdevice;
+  GdkScreen *gscreen;
+
+  gmanager = gdk_display_get_device_manager (global->gdk_display);
+  gdevice = gdk_device_manager_get_client_pointer (gmanager);
+
+  gdk_device_get_position (gdevice, &gscreen, x, y);
+  gdk_device_get_state (gdevice,
+                        gdk_screen_get_root_window (gscreen),
+                        NULL, (GdkModifierType*)mods);
+}
+
+#ifdef HAVE_WAYLAND
+void
+get_pointer_position_clutter (ShellGlobal *global,
+                              int         *x,
+                              int         *y,
+                              int         *mods)
+{
+  ClutterDeviceManager *cmanager;
+  ClutterInputDevice *cdevice;
+  ClutterPoint point;
+
+  cmanager = clutter_device_manager_get_default ();
+  cdevice = clutter_device_manager_get_core_device (cmanager, CLUTTER_POINTER_DEVICE);
+
+  clutter_input_device_get_coords (cdevice, NULL, &point);
+  *x = point.x;
+  *y = point.y;
+  *mods = clutter_input_device_get_modifier_state (cdevice);
+}
+#endif
+
 /**
  * shell_global_get_pointer:
  * @global: the #ShellGlobal
@@ -1324,9 +1364,6 @@ void shell_global_init_xdnd (ShellGlobal *global)
  * @mods: (out): the current set of modifier keys that are pressed down
  *
  * Gets the pointer coordinates and current modifier key state.
- * This is a wrapper around gdk_display_get_pointer() that strips
- * out any un-declared modifier flags, to make gjs happy; see
- * https://bugzilla.gnome.org/show_bug.cgi?id=597292.
  */
 void
 shell_global_get_pointer (ShellGlobal         *global,
@@ -1334,17 +1371,20 @@ shell_global_get_pointer (ShellGlobal         *global,
                           int                 *y,
                           ClutterModifierType *mods)
 {
-  GdkDeviceManager *gmanager;
-  GdkDevice *gdevice;
-  GdkScreen *gscreen;
-  GdkModifierType raw_mods;
+  int raw_mods;
 
-  gmanager = gdk_display_get_device_manager (global->gdk_display);
-  gdevice = gdk_device_manager_get_client_pointer (gmanager);
-  gdk_device_get_position (gdevice, &gscreen, x, y);
-  gdk_device_get_state (gdevice,
-                        gdk_screen_get_root_window (gscreen),
-                        NULL, &raw_mods);
+  /* We can't use the clutter interface when not running as a wayland compositor,
+     because we need to query the server, rather than using the last cached value.
+     OTOH, on wayland we can't use GDK, because that only sees the events
+     we forward to xwayland.
+  */
+#ifdef HAVE_WAYLAND
+  if (meta_is_wayland_compositor ())
+    get_pointer_position_clutter (global, x, y, &raw_mods);
+  else
+#endif
+    get_pointer_position_gdk (global, x, y, &raw_mods);
+
   *mods = raw_mods & GDK_MODIFIER_MASK;
 }
 
@@ -1360,19 +1400,10 @@ void
 shell_global_sync_pointer (ShellGlobal *global)
 {
   int x, y;
-  GdkModifierType mods;
-  GdkDeviceManager *gmanager;
-  GdkDevice *gdevice;
-  GdkScreen *gscreen;
+  ClutterModifierType mods;
   ClutterMotionEvent event;
 
-  gmanager = gdk_display_get_device_manager (global->gdk_display);
-  gdevice = gdk_device_manager_get_client_pointer (gmanager);
-
-  gdk_device_get_position (gdevice, &gscreen, &x, &y);
-  gdk_device_get_state (gdevice,
-                        gdk_screen_get_root_window (gscreen),
-                        NULL, &mods);
+  shell_global_get_pointer (global, &x, &y, &mods);
 
   event.type = CLUTTER_MOTION;
   event.time = shell_global_get_current_time (global);
