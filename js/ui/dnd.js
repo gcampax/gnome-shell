@@ -193,7 +193,7 @@ const _Draggable = new Lang.Class({
         } else if (event.type() == Clutter.EventType.KEY_PRESS && this._dragInProgress) {
             let symbol = event.get_key_symbol();
             if (symbol == Clutter.Escape) {
-                this._cancelDrag(event.get_time());
+                this._cancelDrag(global.get_current_time());
                 return true;
             }
         } else if (event.type() == Clutter.EventType.LEAVE) {
@@ -352,7 +352,7 @@ const _Draggable = new Lang.Class({
         let threshold = Gtk.Settings.get_default().gtk_dnd_drag_threshold;
         if ((Math.abs(stageX - this._dragStartX) > threshold ||
              Math.abs(stageY - this._dragStartY) > threshold)) {
-                this.startDrag(stageX, stageY, event.get_time());
+                this.startDrag(stageX, stageY, global.get_current_time());
                 this._updateDragPosition(event);
         }
 
@@ -458,12 +458,12 @@ const _Draggable = new Lang.Class({
                                                 this._dragActor,
                                                 targX,
                                                 targY,
-                                                event.get_time())) {
+                                                global.get_current_time())) {
                     // If it accepted the drop without taking the actor,
                     // handle it ourselves.
                     if (this._dragActor.get_parent() == Main.uiGroup) {
                         if (this._restoreOnSuccess) {
-                            this._restoreDragActor(event.get_time());
+                            this._restoreDragActor(global.get_current_time());
                             return true;
                         } else
                             this._dragActor.destroy();
@@ -471,7 +471,7 @@ const _Draggable = new Lang.Class({
 
                     this._dragInProgress = false;
                     global.unset_cursor();
-                    this.emit('drag-end', event.get_time(), true);
+                    this.emit('drag-end', global.get_current_time(), true);
                     this._dragComplete();
                     return true;
                 }
@@ -479,7 +479,7 @@ const _Draggable = new Lang.Class({
             target = target.get_parent();
         }
 
-        this._cancelDrag(event.get_time());
+        this._cancelDrag(global.get_current_time());
 
         return true;
     },

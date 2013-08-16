@@ -1009,7 +1009,7 @@ const Panel = new Lang.Class({
                                      true, /* frame action */
                                      button,
                                      event.get_state(),
-                                     event.get_time(),
+                                     global.get_current_time(),
                                      stageX, stageY);
 
         return true;

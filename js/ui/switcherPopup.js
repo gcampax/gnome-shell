@@ -200,7 +200,7 @@ const SwitcherPopup = new Lang.Class({
         let state = mods & this._modifierMask;
 
         if (state == 0)
-            this._finish(event.get_time());
+            this._finish(global.get_current_time());
 
         return true;
     },

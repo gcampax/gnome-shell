@@ -1475,7 +1475,15 @@ shell_global_get_current_time (ShellGlobal *global)
   if (time != CLUTTER_CURRENT_TIME)
     return time;
 
-  return clutter_get_current_event_time ();
+  /* Can't use clutter timestamps when running on wayland, because
+     they have nothing to do with X11 timestamps
+  */
+#ifdef HAVE_WAYLAND
+  if (meta_is_wayland_compositor ())
+    return meta_display_get_current_time_roundtrip (global->meta_display);
+  else
+#endif
+    return clutter_get_current_event_time ();
 }
 
 /**
